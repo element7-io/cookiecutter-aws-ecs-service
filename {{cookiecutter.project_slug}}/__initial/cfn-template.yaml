@@ -1,0 +1,998 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  {{ cookiecutter.project_name }}
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Cluster
+        Parameters:
+          - ClusterNameParam
+          - VpcIdParam
+          - PrivateSubnetsParam
+      - Label:
+          default: LoadBalancer
+        Parameters:
+          - AlbNameParam
+          - AlbArnParam
+          - AlbSecurityGroupIdParam
+          - AlbHostedZoneIdParam
+          - AlbDnsNameParam
+          - AlbHttpsListnerArnParam
+      - Label:
+          default: Service
+        Parameters:
+          - ServiceName
+          - EnvironmentName
+          - DnsName
+          - Role
+          - ServiceHealthCheckPathParam
+          - ServiceHealthCheckGracePeriodParam
+          - ServiceHealthCheckMatcherParam
+      - Label:
+          default: Service Auto Scaling
+        Parameters:
+          - ScalingEvaluationPeriods
+          - CpuScaleOutThreshold
+          - CpuScaleInThreshold
+          - MininumContainerCount
+          - MaximumContainerCount
+          - TimedScaleInScheduleParam
+          - TimedSaleInMinContainersParam
+          - TimedSaleInMaxContainersParam
+          - TimedScaleOutScheduleParam
+      - Label:
+          default: Task
+        Parameters:
+          - TaskCpu
+          - TaskMemory
+          - ImageUrl
+          - ImageTag
+          - ContainerPort
+          - ContainerCpu
+          - ContainerMemory
+      - Label:
+          default: API Gateway
+        Parameters:
+          - CertificateArn
+          - CustomDomainParam
+      - Label:
+          default: Monitoring
+        Parameters:
+          - AlertSnsTopic
+          - BackendHttp5xxErrorsThresholdCount
+          - BackendResponseTimeThresholdSec
+    ParameterLabels:
+      ClusterNameParam:
+        default: Cluster name
+      VpcIdParam:
+        default: Vpc ID
+      PrivateSubnetsParam:
+        default: Private subnets
+      AlbNameParam:
+        default: ALB name
+      AlbArnParam:
+        default: ALB arn
+      AlbSecurityGroupIdParam:
+        default: ALB security group
+      AlbHostedZoneIdParam:
+        default: ALB hosted zone id
+      AlbDnsNameParam:
+        default: ALB DNS name
+      AlbHttpsListnerArnParam:
+        default: ALB HTTPS Listener arn
+      ServiceName:
+        default: Service name
+      EnvironmentName:
+        default: Environment
+      DnsName:
+        default: DNS name
+      Role:
+        default: IAM task role
+      ServiceHealthCheckPathParam:
+        default: Health check path
+      ServiceHealthCheckGracePeriodParam:
+        default: Health check grace period
+      ServiceHealthCheckMatcherParam:
+        default: Health check HTTP codes
+      BackendHttp5xxErrorsThresholdCount:
+        default: Backend HTTP 5xx errors
+      BackendResponseTimeThresholdSec:
+        default: Backend response time
+      ImageTag:
+        default: Image tag
+      ScalingEvaluationPeriods:
+        default: Scaling evaluation periods
+      CpuScaleOutThreshold:
+        default: CPU scale out threshold
+      CpuScaleInThreshold:
+        default: CPU scale in threshold
+      MininumContainerCount:
+        default: Minimum number of containers
+      MaximumContainerCount:
+        default: Maximum number of containers
+      TimedScaleInScheduleParam:
+        default: Cron Schedule for scaling in
+      TimedSaleInMinContainersParam:
+        default: Minimum number of containers when scheduled scaled in
+      TimedSaleInMaxContainersParam:
+        default: Maximum number of containers when scheduled scaled in
+      TimedScaleOutScheduleParam:
+        default: Cron Schedule for scaling out
+      TaskCpu:
+        default: Task CPU capacity
+      TaskMemory:
+        default: Task memory capacity
+      ContainerPort:
+        default: Container Port
+      ContainerCpu:
+        default: Container CPU capacity
+      ContainerMemory:
+        default: Container memory capacity
+      CertificateArn:
+        default: Certificate ARN
+      CustomDomainParam:
+        default: Custom doman name
+      AlertSnsTopic:
+        default: Alert topic
+
+Parameters:
+  ClusterNameParam :
+    Type: String
+    Description: The name of th ECS cluster
+  VpcIdParam :
+    Type: String
+    Description: The VPC id
+  PrivateSubnetsParam:
+    Type: String
+    Description: The private subnets
+  AlbNameParam:
+    Type: String
+    Description: The ALB name
+  AlbArnParam:
+    Type: String
+    Description: The ALB arn
+  AlbSecurityGroupIdParam:
+    Type: String
+    Description: The ALB's security group
+  AlbHostedZoneIdParam:
+    Type: String
+    Description: The ALB's hosted zone id
+  AlbDnsNameParam:
+    Type: String
+    Description: The ALB's DNS name
+  AlbHttpsListnerArnParam:
+    Type: String
+    Description: The ALB's Listener arn
+  ServiceName:
+    Type: String
+    Default: nginx
+    Description: A name for the service
+  EnvironmentName:
+    Type: String
+    Description: The name of the environment.
+    AllowedValues:
+      - test
+      - acc
+      - prod
+    Default: test
+  DnsName:
+    Type: String
+    Description: A host for which to forward traffic to the target group.
+  Role:
+    Type: String
+    Default: ""
+    Description: (Optional) An IAM role to give the service's containers if the code within needs to
+                 access other AWS resources like S3 buckets, DynamoDB tables, etc
+  ServiceHealthCheckPathParam:
+    Type: String
+    Default: "/info"
+    Description: Specifies the path containing the health check used by the target group of the
+                 load balancer.
+  ServiceHealthCheckGracePeriodParam:
+    Type: Number
+    Default: 300
+    Description: Specifies the period (in sec) that the LB will ignore unhealthy check at startup.
+    MinValue: 0
+    MaxValue: 7200
+  ServiceHealthCheckMatcherParam:
+    Type: String
+    Default: "200"
+    Description: Specifies the HTTP return codes that are considered healthy.
+  ScalingEvaluationPeriods:
+    Type: Number
+    Description: The number of periods over which data is compared to the specified threshold
+    Default: 2
+    MinValue: 2
+  CpuScaleOutThreshold:
+    Type: Number
+    Description: Average CPU value to trigger auto scaling out
+    Default: 50
+    MinValue: 0
+    MaxValue: 100
+    ConstraintDescription: Value must be between 0 and 100
+  CpuScaleInThreshold:
+    Type: Number
+    Description: Average CPU value to trigger auto scaling in
+    Default: 25
+    MinValue: 0
+    MaxValue: 100
+    ConstraintDescription: Value must be between 0 and 100
+  MininumContainerCount:
+    Type: Number
+    Description: Minimum number of containers to run for the service
+    Default: 1
+    MinValue: 1
+    ConstraintDescription: Value must be at least one
+  MaximumContainerCount:
+    Type: Number
+    Description: Maximum number of containers to run for the service when auto scaling out
+    Default: 2
+    MinValue: 1
+    ConstraintDescription: Value must be at least on
+  TimedScaleInScheduleParam:
+    Type: String
+    Description: Cron Schedule for scaling in
+  TimedSaleInMinContainersParam:
+    Type: Number
+    Description: Minimum number of containers when scheduled scaled in
+    Default: 0
+    MinValue: 0
+  TimedSaleInMaxContainersParam:
+    Type: Number
+    Description: Maximum number of containers when scheduled scaled in
+    Default: 0
+    MinValue: 0
+  TimedScaleOutScheduleParam:
+    Type: String
+    Description: Cron Schedule for scaling out
+  ImageTag:
+    Type: String
+    Default: "latest"
+    Description: Tag of the image that should be deployed
+  TaskCpu:
+    Type: Number
+    Default: 256
+    Description: How much CPU to give the task. 1024 is 1 CPU
+  TaskMemory:
+    Type: Number
+    Default: 512
+    Description: How much memory in megabytes to give the task
+  ContainerPort:
+    Type: Number
+    Default: 80
+    Description: What port number the application inside the docker container is binding to
+  ContainerCpu:
+    Type: Number
+    Default: 256
+    Description: How much CPU to give the container. 1024 is 1 CPU
+  ContainerMemory:
+    Type: Number
+    Default: 512
+    Description: How much memory in megabytes to give the container
+  CertificateArn:
+    Type: String
+    Description: ARN of the tls/ssl certificate to use with API Gateway endpoints.
+  CustomDomainParam:
+    Type: String
+    Description: API Gateway custom domain name
+  AlertSnsTopic:
+    Type: String
+    Description: Contains the ARN of the SNS topic on which alerts should be published.
+  BackendHttp5xxErrorsThresholdCount:
+    Type: Number
+    Description: Specifies the threshold of number of HTTP 5XX errors by backend over a period 15min.
+    Default: 10
+  BackendResponseTimeThresholdSec:
+    Type: String
+    Description: Sets the threshold for backend response time above which an alert will be generated (in sec).
+    Default: "0.5"
+  CreateDnsRecord:
+    Type: String
+    Description: Select if stack should also create Route53 record.
+    AllowedValues:
+      - Y
+      - N
+    Default: N
+
+Conditions:
+  HasCustomRole: !Not [ !Equals [!Ref Role, ''] ]
+  ShouldCreateDnsRecord: !Equals [!Ref CreateDnsRecord, 'Y']
+  CreateProdResources: !Equals [ !Ref EnvironmentName, prod ]
+  CreateNonProdResources: !Not [!Equals [ !Ref EnvironmentName, prod ] ]
+
+Resources:
+  ALBInfo:
+    Type: "Custom::ALBInfo"
+    Properties:
+      ServiceToken: !ImportValue CustomResourceInfoLambaArn
+      AlbName: !Ref AlbNameParam
+
+  # This role is used by the AWS Tasks themselves. In fact it can be assumed by the Amazon ECS
+  # container agent and the Docker daemon.
+  EcsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "EcsTaskExecutionRoleFor-${ServiceName}-${EnvironmentName}-cf"
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [ecs-tasks.amazonaws.com]
+          Action:
+            - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: !Sub "ECS${ServiceName}${EnvironmentName}TaskExecutionPolicy"
+          PolicyDocument:
+            Statement:
+            - Effect: Allow
+              Action:
+                # Allow the ECS Tasks to download images from ECR
+                - ecr:GetAuthorizationToken
+                - ecr:BatchCheckLayerAvailability
+                - ecr:GetDownloadUrlForLayer
+                - ecr:BatchGetImage
+                # Allow the ECS tasks to upload logs to CloudWatch
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+
+  # This role grants containers in the task permission to call AWS APIs.
+  EcsTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "EcsTaskRoleFor-${ServiceName}-${EnvironmentName}-cf"
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [ecs-tasks.amazonaws.com]
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: !Sub "ECS${ServiceName}${EnvironmentName}TaskPolicy"
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                  - xray:GetSamplingRules
+                  - xray:GetSamplingTargets
+                Resource: "*"
+
+  ServiceAutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "EcsAutoScalingnFor-${ServiceName}-${EnvironmentName}-cf"
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: application-autoscaling.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: !Sub "${ServiceName}${EnvironmentName}AutoScalingPolicy"
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - application-autoscaling:*
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:PutMetricAlarm
+                  - ecs:DescribeServices
+                  - ecs:UpdateService
+                Resource: '*'
+
+  # The task definition. This is a simple metadata description of what container to run, and what resource requirements it has.
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${ServiceName}-${EnvironmentName}-cf"
+      Cpu: !Ref TaskCpu
+      Memory: !Ref TaskMemory
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !Ref EcsTaskExecutionRole
+      TaskRoleArn: !If [ HasCustomRole, !Ref Role, !Ref EcsTaskRole ]
+      ContainerDefinitions:
+{%- if cookiecutter.enable_xray == "True" %}
+        # See https://github.com/aws-samples/aws-xray-fargate
+        - Name: xray-daemon
+          Cpu: 128
+          Memory: 256
+          Image: amazon/aws-xray-daemon
+          PortMappings:
+            - ContainerPort: 2000
+              Protocol: udp
+{%- endif %}
+        - Name: !Ref ServiceName
+          Cpu: !Ref ContainerCpu
+          Memory: !Ref ContainerMemory
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ cookiecutter.project_slug }}-repo:${ImageTag}"
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+          Environment:
+            - Name: Application
+              Value: !Ref ServiceName
+            - Name: Environment
+              Value: !Ref EnvironmentName
+            - Name: SPRING_PROFILES_ACTIVE
+              Value: !Ref EnvironmentName
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+{%- if cookiecutter.service_log_group != "" %}
+              awslogs-group: !Sub "{{ cookiecutter.service_log_group }}"
+{%- else %}
+              awslogs-group: !Ref ServiceLogGroup
+{%- endif %}
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: !Ref ServiceName
+{% if cookiecutter.service_log_group == "" %}
+  ServiceLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "${ServiceName}-${EnvironmentName}-cf"
+      RetentionInDays: 7
+{%- endif %}
+
+  # The service. The service is a resource which allows you to run multiple
+  # copies of a type of task, and gather up their logs and metrics, as well
+  # as monitor the number of running tasks and replace any that have crashed
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - TaskDefinition
+      - ServiceLoadBalancerRule
+    Properties:
+      ServiceName: !Sub "${ServiceName}-${EnvironmentName}-cf"
+      Cluster: !Ref ClusterNameParam
+      LaunchType: FARGATE
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DesiredCount: !Ref MininumContainerCount
+      HealthCheckGracePeriodSeconds: !Ref ServiceHealthCheckGracePeriodParam
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref ServiceSecurityGroup
+          Subnets: !Split [",", !Ref PrivateSubnetsParam]
+      TaskDefinition: !Ref TaskDefinition
+      LoadBalancers:
+        - ContainerName: !Ref ServiceName
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref ServiceTargetGroup
+{%- if cookiecutter.enable_service_discovery == "Y" %}
+      ServiceRegistries:
+        - RegistryArn: !GetAtt ServiceDiscovery.Arn
+          ContainerName: !Ref ServiceName
+
+  ServiceDiscovery:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: !Sub "${ServiceName}.${EnvironmentName}"
+      DnsConfig:
+        DnsRecords: [{Type: A, TTL: "10"}]
+        NamespaceId: "{{ cookiecutter.service_discovery_namespace }}"
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+{%- endif %}
+
+  # Scaling policies for NON-PROD
+  ServiceScalingTargetNonProd:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Condition: CreateNonProdResources
+    Properties:
+      MinCapacity: !Ref MininumContainerCount
+      MaxCapacity: !Ref MaximumContainerCount
+      ResourceId: !Sub "service/${ClusterNameParam}/${ServiceName}-${EnvironmentName}-cf"
+      RoleARN: !GetAtt ServiceAutoScalingRole.Arn
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+{%- if cookiecutter.non_prod_enable_scheduled_scaling == "True" %}
+      ScheduledActions:
+        - ScheduledActionName: ScaleDownDuringNightsAndWeekends
+          Schedule: !Ref TimedScaleInScheduleParam
+          ScalableTargetAction:
+            MaxCapacity: !Ref TimedSaleInMinContainersParam
+            MinCapacity: !Ref TimedSaleInMaxContainersParam
+        - ScheduledActionName: ScaleUpOnWeekdays
+          Schedule: !Ref TimedScaleOutScheduleParam
+          ScalableTargetAction:
+            MinCapacity: !Ref MininumContainerCount
+            MaxCapacity: !Ref MaximumContainerCount
+{%- endif %}
+    DependsOn:
+      - Service
+      - ServiceAutoScalingRole
+
+  # Scaling policies for NON-PROD
+  ServiceScaleOutPolicyNonProd:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: CreateNonProdResources
+    Properties:
+      PolicyName: !Sub "${ServiceName}-${EnvironmentName}ScaleOutPolicy-cf"
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref ServiceScalingTargetNonProd
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 60
+        MetricAggregationType: Average
+        StepAdjustments:
+          - ScalingAdjustment: 1
+            MetricIntervalLowerBound: 0
+    DependsOn: ServiceScalingTargetNonProd
+
+  # Scaling policies for NON-PROD
+  ServiceScaleInPolicyNonProd:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: CreateNonProdResources
+    Properties:
+      PolicyName: !Sub "${ServiceName}-${EnvironmentName}ScaleInPolicy-cf"
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref ServiceScalingTargetNonProd
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 60
+        MetricAggregationType: Average
+        StepAdjustments:
+          - ScalingAdjustment: -1
+            MetricIntervalUpperBound: 0
+    DependsOn: ServiceScalingTargetNonProd
+
+  # Scaling policies for NON-PROD
+  ServiceScaleOutAlarmNonProd:
+    Type: AWS::CloudWatch::Alarm
+    Condition: CreateNonProdResources
+    Properties:
+      EvaluationPeriods: !Ref ScalingEvaluationPeriods
+      Statistic: Average
+      TreatMissingData: notBreaching
+      Threshold: !Ref CpuScaleOutThreshold
+      AlarmDescription: Alarm to add capacity if CPU is high
+      Period: 60
+      AlarmActions:
+        - !Ref ServiceScaleOutPolicyNonProd
+      Namespace: AWS/ECS
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref ClusterNameParam
+        - Name: ServiceName
+          Value: !Sub "${ServiceName}-${EnvironmentName}-cf"
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: CPUUtilization
+    DependsOn:
+      - Service
+      - ServiceScaleOutPolicyNonProd
+
+  # Scaling policies for NON-PROD
+  ServiceScaleInAlarmNonProd:
+    Type: AWS::CloudWatch::Alarm
+    Condition: CreateNonProdResources
+    Properties:
+      EvaluationPeriods: !Ref ScalingEvaluationPeriods
+      Statistic: Average
+      TreatMissingData: notBreaching
+      Threshold: !Ref CpuScaleInThreshold
+      AlarmDescription: Alarm to reduce capacity if container CPU is low
+      Period: 300
+      AlarmActions:
+        - !Ref ServiceScaleInPolicyNonProd
+      Namespace: AWS/ECS
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref ClusterNameParam
+        - Name: ServiceName
+          Value: !Sub "${ServiceName}-${EnvironmentName}-cf"
+      ComparisonOperator: LessThanThreshold
+      MetricName: CPUUtilization
+    DependsOn:
+      - Service
+      - ServiceScaleInPolicyNonProd
+
+  # Scaling policies for PRODUCTION
+  ServiceScalingTargetProd:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Condition: CreateProdResources
+    Properties:
+      MinCapacity: !Ref MininumContainerCount
+      MaxCapacity: !Ref MaximumContainerCount
+      ResourceId: !Sub "service/${ClusterNameParam}/${ServiceName}-${EnvironmentName}-cf"
+      RoleARN: !GetAtt ServiceAutoScalingRole.Arn
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+{%- if cookiecutter.prod_enable_scheduled_scaling == "True" %}
+      ScheduledActions:
+        - ScheduledActionName: ScaleDownDuringNightsAndWeekends
+          Schedule: !Ref TimedScaleInScheduleParam
+          ScalableTargetAction:
+            MaxCapacity: !Ref TimedSaleInMinContainersParam
+            MinCapacity: !Ref TimedSaleInMaxContainersParam
+        - ScheduledActionName: ScaleUpOnWeekdays
+          Schedule: !Ref TimedScaleOutScheduleParam
+          ScalableTargetAction:
+            MinCapacity: !Ref MininumContainerCount
+            MaxCapacity: !Ref MaximumContainerCount
+{%- endif %}
+    DependsOn:
+      - Service
+      - ServiceAutoScalingRole
+
+  # Scaling policies for PRODUCTION
+  ServiceScaleOutPolicyProd:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: CreateProdResources
+    Properties:
+      PolicyName: !Sub "${ServiceName}-${EnvironmentName}ScaleOutPolicy-cf"
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref ServiceScalingTargetProd
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 60
+        MetricAggregationType: Average
+        StepAdjustments:
+          - ScalingAdjustment: 1
+            MetricIntervalLowerBound: 0
+    DependsOn: ServiceScalingTargetProd
+
+  # Scaling policies for PRODUCTION
+  ServiceScaleInPolicyProd:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: CreateProdResources
+    Properties:
+      PolicyName: !Sub "${ServiceName}-${EnvironmentName}ScaleInPolicy-cf"
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref ServiceScalingTargetProd
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 60
+        MetricAggregationType: Average
+        StepAdjustments:
+          - ScalingAdjustment: -1
+            MetricIntervalUpperBound: 0
+    DependsOn: ServiceScalingTargetProd
+
+  # Scaling policies for PRODUCTION
+  ServiceScaleOutAlarmProd:
+    Type: AWS::CloudWatch::Alarm
+    Condition: CreateProdResources
+    Properties:
+      EvaluationPeriods: !Ref ScalingEvaluationPeriods
+      Statistic: Average
+      TreatMissingData: notBreaching
+      Threshold: !Ref CpuScaleOutThreshold
+      AlarmDescription: Alarm to add capacity if CPU is high
+      Period: 60
+      AlarmActions:
+        - !Ref ServiceScaleOutPolicyProd
+      Namespace: AWS/ECS
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref ClusterNameParam
+        - Name: ServiceName
+          Value: !Sub "${ServiceName}-${EnvironmentName}-cf"
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: CPUUtilization
+    DependsOn:
+      - Service
+      - ServiceScaleOutPolicyProd
+
+  # Scaling policies for PRODUCTION
+  ServiceScaleInAlarmProd:
+    Type: AWS::CloudWatch::Alarm
+    Condition: CreateProdResources
+    Properties:
+      EvaluationPeriods: !Ref ScalingEvaluationPeriods
+      Statistic: Average
+      TreatMissingData: notBreaching
+      Threshold: !Ref CpuScaleInThreshold
+      AlarmDescription: Alarm to reduce capacity if container CPU is low
+      Period: 300
+      AlarmActions:
+        - !Ref ServiceScaleInPolicyProd
+      Namespace: AWS/ECS
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref ClusterNameParam
+        - Name: ServiceName
+          Value: !Sub "${ServiceName}-${EnvironmentName}-cf"
+      ComparisonOperator: LessThanThreshold
+      MetricName: CPUUtilization
+    DependsOn:
+      - Service
+      - ServiceScaleInPolicyProd
+
+  # A security group to allow incoming traffic to the containers.
+  ServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "Allow traffic from LoadBalancer to service: ${ServiceName}-${EnvironmentName}-cf"
+      VpcId: !Ref VpcIdParam
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: !Ref ContainerPort
+        ToPort: !Ref ContainerPort
+        SourceSecurityGroupId: !Ref AlbSecurityGroupIdParam
+      Tags:
+        - Key: Name
+          Value: !Sub "app-${ServiceName}-${EnvironmentName}-cf"
+
+  # A target group. This is used for keeping track of all the tasks, and
+  # what IP addresses / port numbers they have. You can query it yourself,
+  # to use the addresses yourself, but most often this target group is just
+  # connected to an application load balancer, or network load balancer, so
+  # it can automatically distribute traffic across all the targets.
+  ServiceTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "{{ cookiecutter.cloudformation_resource_prefix }}-${EnvironmentName}-cf"
+      TargetType: ip
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      VpcId: !Ref VpcIdParam
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: !Ref ServiceHealthCheckPathParam
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 25
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: !Ref ServiceHealthCheckMatcherParam
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: "30"
+
+  # Create a rule on the load balancer for routing traffic to the target group
+  ServiceLoadBalancerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref ServiceTargetGroup
+          Type: "forward"
+      Conditions:
+        - Field: host-header
+          Values:
+            - !Ref DnsName
+      ListenerArn: !Ref AlbHttpsListnerArnParam
+      Priority: !GetAtt ALBInfo.HttpsListenerPriority
+
+  # DNS Record that points to the ECS cluster ALB
+  DnsRecordAlb:
+    Type: AWS::Route53::RecordSetGroup
+    Condition: ShouldCreateDnsRecord
+    Properties:
+      HostedZoneName: "{{ cookiecutter.dns_suffix }}."
+      Comment: !Sub "Alias record for ${EnvironmentName} of ${ServiceName}"
+      RecordSets:
+      - Name: !Ref DnsName
+        Type: A
+        AliasTarget:
+          HostedZoneId: !Ref AlbHostedZoneIdParam
+          DNSName:  !Ref AlbDnsNameParam
+
+  # Monitoring alerts
+  # - Response time of backends. When over a period of 15 min, the 90th percentile of
+  # backend response time exceeds the configured threshold an alarm alert will be triggered.
+  # AlarmBackendResponseTime:
+  #   Type: AWS::CloudWatch::Alarm
+  #   Condition: ShouldConfigureAlarms
+  #   Properties:
+  #     AlarmDescription: !Sub "Alarm for backend response time of ${ServiceName}."
+  #     AlarmName: !Sub "${ServiceName}-${EnvironmentName}-backend-response-time"
+  #     AlarmActions:
+  #     - !Ref AlertSnsTopic
+  #     MetricName: TargetResponseTime
+  #     Namespace: AWS/ApplicationELB
+  #     ExtendedStatistic: "p90"
+  #     Period: "300"
+  #     EvaluationPeriods: "3"
+  #     Threshold: !Ref BackendResponseTimeThresholdSec
+  #     ComparisonOperator: GreaterThanThreshold
+  #     TreatMissingData: notBreaching
+  #     Dimensions:
+  #     - Name: LoadBalancer
+  #       Value:
+  #         Fn::ImportValue:
+  #           !Sub "${SharedResourcesStackName}:${LoadbalancerType}ALB:FullName"
+  #     - Name: TargetGroup
+  #       Value: !GetAtt ServiceTargetGroup.TargetGroupFullName
+
+  # - HTTP 5xx errors from backends. When over a period of 15 min, there are more than
+  # HTTP 5XX errors than the configured threshold an alarm alert will be triggered.
+  # AlarmBackendHttp5xxErrors:
+  #   Type: AWS::CloudWatch::Alarm
+  #   Condition: ShouldConfigureAlarms
+  #   Properties:
+  #     AlarmDescription: !Sub "Alarm for HTTP 5xx errors by backend of ${ServiceName}."
+  #     AlarmName: !Sub "${ServiceName}-${EnvironmentName}-backend-http-5xx"
+  #     AlarmActions:
+  #     - !Ref AlertSnsTopic
+  #     MetricName: HTTPCode_Target_5XX_Count
+  #     Namespace: AWS/ApplicationELB
+  #     Statistic: "Sum"
+  #     Period: "900"
+  #     EvaluationPeriods: "1"
+  #     Threshold: !Ref BackendHttp5xxErrorsThresholdCount
+  #     ComparisonOperator: GreaterThanThreshold
+  #     TreatMissingData: notBreaching
+  #     Dimensions:
+  #     - Name: LoadBalancer
+  #       Value:
+  #         Fn::ImportValue:
+  #           !Sub "${SharedResourcesStackName}:${LoadbalancerType}ALB:FullName"
+  #     - Name: TargetGroup
+  #       Value: !GetAtt ServiceTargetGroup.TargetGroupFullName
+
+  # - Unhealthy backends. When over a period of 15 min, there is an unhealth backend 
+  # instance for more than half of the time an alarm alert will be triggered.
+  # AlarmBackendUnhealthyHosts:
+  #   Type: AWS::CloudWatch::Alarm
+  #   Condition: ShouldConfigureAlarms
+  #   Properties:
+  #     AlarmDescription: !Sub "Alarm for unhealthy backends of ${ServiceName}."
+  #     AlarmName: !Sub "${ServiceName}-${EnvironmentName}-backend-unhealthy"
+  #     AlarmActions:
+  #     - !Ref AlertSnsTopic
+  #     MetricName: UnHealthyHostCount
+  #     Namespace: AWS/ApplicationELB
+  #     ExtendedStatistic: "p50"
+  #     Period: "900"
+  #     EvaluationPeriods: "1"
+  #     Threshold: "1"
+  #     ComparisonOperator: GreaterThanOrEqualToThreshold
+  #     Dimensions:
+  #     - Name: LoadBalancer
+  #       Value:
+  #         Fn::ImportValue:
+  #           !Sub "${SharedResourcesStackName}:${LoadbalancerType}ALB:FullName"
+  #     - Name: TargetGroup
+  #       Value: !GetAtt ServiceTargetGroup.TargetGroupFullName
+
+
+# -- Cloudwatch resources
+
+{% if cookiecutter.enable_api_gateway == "True" %}
+# -- API Gateway related resources
+#
+  # Assure API Gateways is enabled in the AWS Account otherwise 'AWS::ApiGateway::Account' will fail!
+  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-account.html
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: !Sub "${ServiceName}-${EnvironmentName}-dummy-key"
+      Description: Dummy API key to ensure API Gateway is enabled
+      Enabled: false
+
+  ApiGatewayCloudWatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "api-gateway-${ServiceName}-${EnvironmentName}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGatewayCloudWatchRole.Arn
+    DependsOn: ApiKey
+
+  ApiGateway:
+    DependsOn: ApiGatewayAccount
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "${ServiceName}-${EnvironmentName}"
+      Description: !Sub "${ServiceName}-${EnvironmentName}"
+      EndpointConfiguration:
+        Types:
+          - {{ cookiecutter.api_gateway_endpoint_type }}
+
+  ApiGatewayCustomDomainName:
+    DependsOn: ApiGateway
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Ref CustomDomainParam
+    {%- if cookiecutter.api_gateway_endpoint_type == "REGIONAL" %}
+      RegionalCertificateArn: !Ref CertificateArn
+    {%- else %}
+      CertificateArn: !Ref CertificateArn
+    {%- endif %}
+      EndpointConfiguration:
+        Types:
+          - {{ cookiecutter.api_gateway_endpoint_type }}
+
+  ApiGatewayBasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    DependsOn: ApiGatewayDeployment
+    Properties:
+      DomainName: !Ref ApiGatewayCustomDomainName
+      RestApiId: !Ref ApiGateway
+      Stage: !Ref EnvironmentName
+
+  ProxyApiResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      RestApiId: !Ref ApiGateway
+      PathPart: '{proxy+}'
+
+  ApiGatewayAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "${ServiceName}-${EnvironmentName}-ApiGateway-cf"
+      RetentionInDays: 7
+
+  ApiGatewayDeployment:
+    DependsOn: ProxyMethod
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGateway
+      StageName: !Ref EnvironmentName
+      StageDescription:
+        LoggingLevel: ERROR
+        MetricsEnabled: True
+        TracingEnabled: True
+        DataTraceEnabled: True
+        # MethodSettings:
+        #   - MetricsEnabled: True
+        #     LoggingLevel: ERROR
+        #     HttpMethod: "*"
+        #     ResourcePath: "/*"
+        #     DataTraceEnabled: False
+
+  ProxyMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: True
+      AuthorizationType: NONE
+      HttpMethod: ANY
+      ResourceId: !Ref ProxyApiResource
+      RestApiId: !Ref ApiGateway
+      RequestParameters:
+        method.request.path.proxy: True
+      Integration:
+        RequestParameters:
+          integration.request.path.proxy: "method.request.path.proxy"
+          integration.request.header.x-security-header:  "'{{ cookiecutter.alb_secret }}'"
+          integration.request.header.Host: !Sub "'${DnsName}'"
+          integration.request.header.x-amzn-Remapped-Host: !Sub "'${DnsName}'"
+        IntegrationHttpMethod: ANY
+        Type: HTTP_PROXY
+        Uri: !Sub "{{ cookiecutter.api_gateway_proxy_uri }}"
+
+  # DNS Record API Gateway
+  DnsRecordApi:
+    Type: AWS::Route53::RecordSetGroup
+    DependsOn: ApiGatewayCustomDomainName
+    Condition: ShouldCreateDnsRecord
+    Properties:
+      HostedZoneName: "{{ cookiecutter.dns_suffix }}."
+      Comment: !Sub "CNAME record for ${EnvironmentName} of ${ServiceName}, Api Gateway Custom Domain Name"
+      RecordSets:
+      - Name: !Ref CustomDomainParam
+        Type: CNAME
+        TTL: "300"
+        ResourceRecords:
+        {%- if cookiecutter.api_gateway_endpoint_type == "REGIONAL" %}
+          - !GetAtt ApiGatewayCustomDomainName.RegionalDomainName
+        {%- else %}
+          - !GetAtt ApiGatewayCustomDomainName.DistributionDomainName
+        {%- endif %}
+{%- endif %}

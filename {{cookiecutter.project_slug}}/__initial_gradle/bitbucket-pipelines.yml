@@ -1,0 +1,62 @@
+image:
+  name: atlassian/default-image:2
+clone:
+  depth: 1
+pipelines:
+  custom:
+    test:
+      - step:
+          name: Gradle build
+          caches:
+            - gradle
+            - gradlewrapper
+          script:
+            - ./gradlew --init-script init.gradle --stacktrace -PbuildNumber=commit-${BITBUCKET_COMMIT} build
+            # Unzip fatjar
+            - mkdir -p build/raw
+            - (cd build/raw; jar -xf ../libs/*.jar)
+          artifacts:
+            - build/raw/**
+      - step:
+          name: Docker build and upload to ECR/S3
+          image: atlassian/pipelines-awscli:latest
+          caches:
+            - docker
+          script:
+            - apk add make zip
+            - eval $(aws ecr get-login --region eu-west-1 --no-include-email)
+            - make build-docker
+            - make docker-push LABEL=latest-test
+            - make docker-push LABEL=t_sha-$BITBUCKET_COMMIT
+            - make upload-test
+  branches:
+    master:
+      - step:
+          name: Gradle build
+          caches:
+            - gradle
+            - gradlewrapper
+          script:
+            - ./gradlew --init-script init.gradle --stacktrace -PbuildNumber=commit-${BITBUCKET_COMMIT} build
+            # Unzip fatjar
+            - mkdir -p build/raw
+            - (cd build/raw; jar -xf ../libs/*.jar)
+          artifacts:
+            - build/raw/**
+      - step:
+          name: Docker build and upload to ECR/S3
+          image: atlassian/pipelines-awscli:latest
+          caches:
+            - docker
+          script:
+            - apk add make zip
+            - eval $(aws ecr get-login --region eu-west-1 --no-include-email)
+            - make build-docker
+            - make docker-push LABEL=latest
+            - make docker-push LABEL=sha-$BITBUCKET_COMMIT
+            - make upload
+options:
+  docker: true
+definitions:
+  caches:
+    gradlewrapper: ~/.gradle/wrapper

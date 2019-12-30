@@ -1,0 +1,392 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Pipeline for {{ cookiecutter.project_name }}.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Description: Name of the project.
+    Default: {{ cookiecutter.project_slug }}
+  ArtifactBucketName:
+    Type: String
+    Description: Name of the S3 bucket containing the deployable artifacts.
+    Default: {{ cookiecutter.artifact_s3_bucket }}
+
+Resources:
+  EcrImageRepository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    Properties:
+      RepositoryName: {{ cookiecutter.project_slug }}-repo
+      LifecyclePolicy:
+        LifecyclePolicyText: >
+          {
+            "rules": [
+              {
+                "rulePriority": 10,
+                "description": "Only retain last 10 images with tagprefix sha",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "countType": "imageCountMoreThan",
+                  "tagPrefixList": [
+                    "sha"
+                  ],
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 15,
+                "description": "Only retain last 2 images with tagprefix latest-test",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "countType": "imageCountMoreThan",
+                  "tagPrefixList": [
+                    "t_sha"
+                  ],
+                  "countNumber": 2
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 20,
+                "description": "Only retain last untagged images",
+                "selection": {
+                  "tagStatus": "untagged",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 1
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+
+  # CodePipeline IAM Role
+  CodePipelineServicenRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+      Path: /
+      Policies:
+        - PolicyName: DefaultCodePipelinePolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource:
+                  - !Sub "arn:aws:s3:::${ArtifactBucketName}"
+                  - !Sub "arn:aws:s3:::${ArtifactBucketName}/*"
+                  - "arn:aws:s3:::codepipeline*"
+                  - "arn:aws:s3:::codepipeline*/*"
+                  - "arn:aws:s3:::elasticbeanstalk*"
+                  - "arn:aws:s3:::elasticbeanstalk*/*"
+                Effect: Allow
+                Action:
+                  - s3:*
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuild
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:UploadArchive
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:CancelUploadArchive
+                  - codedeploy:CreateDeployment
+                  - codedeploy:GetApplicationRevision
+                  - codedeploy:GetDeployment
+                  - codedeploy:GetDeploymentConfig
+                  - codedeploy:RegisterApplicationRevision
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - ecs:DescribeTasks
+                  - ecs:ListTasks
+                  - ecs:RegisterTaskDefinition
+                  - ecs:UpdateService
+                  - lambda:invokefunction
+                  - lambda:listfunctions
+                  - sns:Publish
+        - PolicyName: CloudFormationAccess
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - cloudformation:GetTemplate
+                  - cloudformation:CreateStack
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeStacks
+                  - cloudformation:UpdateStack
+                  - cloudformation:DescribeStackResource
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:SetStackPolicy
+                  - cloudformation:ValidateTemplate
+                  - iam:PassRole
+
+  CloudFormationExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Action:
+            - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+              - cloudformation.amazonaws.com
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+{% if cookiecutter.deploy_test == "True" %}
+  # Defintiion of the test CodePipeline.
+  TestPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+          Location: !Ref ArtifactBucketName
+          Type: S3
+      Name: !Sub "${ProjectName}-test-pipeline-cfn"
+      RoleArn: !GetAtt CodePipelineServicenRole.Arn
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: TestSource
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: S3
+                Version: 1
+              Configuration:
+                S3Bucket: !Ref ArtifactBucketName
+                S3ObjectKey: !Sub "${ProjectName}/${ProjectName}-test.zip"
+              OutputArtifacts:
+                - Name: SourceTestZip
+              RunOrder: 1
+        - Name: Test
+          Actions:
+            - Name: DeployTest
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_NAMED_IAM
+                RoleArn: !GetAtt CloudFormationExecutionRole.Arn
+                StackName: !Sub "${ProjectName}-test-stack-cfn"
+                TemplatePath: SourceTestZip::cfn-template.yaml
+                TemplateConfiguration: SourceTestZip::config/test-stack-config.json
+              InputArtifacts:
+                - Name: SourceTestZip
+              RunOrder: 1
+              # Until native tagging is suported by CFN
+            - Name: ApplyTags
+              ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Provider: Lambda
+                Version: 1
+              Configuration:
+                FunctionName: !Ref TaggingLambda
+                UserParameters: !Sub '{"clustername": "{{ cookiecutter.non_prod_cluster_name }}", "stackname": "${ProjectName}-test-stack-cfn", "accountid": "${AWS::AccountId}", "region": "${AWS::Region}", "servicename": "{{ cookiecutter.project_slug }}-test-cf"}'
+              RunOrder: 2
+{% endif %}
+
+{%- if cookiecutter.deploy_acc == "True" or cookiecutter.deploy_prod == "True" %}
+  # Defintiion of the prouction/acceptance CodePipeline.
+  DeliveryPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+          Location: !Ref ArtifactBucketName
+          Type: S3
+      Name: !Sub "${ProjectName}-delivery-pipeline-cfn"
+      RoleArn: !GetAtt CodePipelineServicenRole.Arn
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: DeliverySource
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: S3
+                Version: 1
+              Configuration:
+                S3Bucket: !Ref ArtifactBucketName
+                S3ObjectKey: !Sub "${ProjectName}/${ProjectName}.zip"
+              OutputArtifacts:
+                - Name: SourceDeliveryZip
+              RunOrder: 1
+        {%- if cookiecutter.deploy_acc == "True" %}
+        - Name: Acceptance
+          Actions:
+            - Name: DeployAcceptance
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_NAMED_IAM
+                RoleArn: !GetAtt CloudFormationExecutionRole.Arn
+                StackName: !Sub "${ProjectName}-acc-stack-cfn"
+                TemplatePath: SourceDeliveryZip::cfn-template.yaml
+                TemplateConfiguration: SourceDeliveryZip::config/acc-stack-config.json
+              InputArtifacts:
+                - Name: SourceDeliveryZip
+              RunOrder: 1
+              # Until native tagging is suported by CFN
+            - Name: ApplyTags
+              ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Provider: Lambda
+                Version: 1
+              Configuration:
+                FunctionName: !Ref TaggingLambda
+                UserParameters: !Sub '{"clustername": "{{ cookiecutter.non_prod_cluster_name }}", "stackname": "${ProjectName}-acc-stack-cfn", "accountid": "${AWS::AccountId}", "region": "${AWS::Region}", "servicename": "{{ cookiecutter.project_slug }}-acc-cf"}'
+              RunOrder: 2
+        {%- endif %}
+        {%- if cookiecutter.enable_pipeline_approvals == "True" %}
+            - Name: UATApproval
+              ActionTypeId:
+                Category: Approval
+                Owner: AWS
+                Version: 1
+                Provider: Manual
+              Configuration:
+                {%- if cookiecutter.approvals_notification_topic != "" %}
+                NotificationArn: {{ cookiecutter.approvals_notification_topic }}
+                {%- endif %}
+                CustomData: !Ref ProjectName
+              RunOrder: 3
+        {%- endif %}
+        {%- if cookiecutter.deploy_prod == "True" %}
+        - Name: Production
+          Actions:
+            - Name: DeployProduction
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_NAMED_IAM
+                RoleArn: !GetAtt CloudFormationExecutionRole.Arn
+                StackName: !Sub "${ProjectName}-prod-stack-cfn"
+                TemplatePath: SourceDeliveryZip::cfn-template.yaml
+                TemplateConfiguration: SourceDeliveryZip::config/prod-stack-config.json
+              InputArtifacts:
+                - Name: SourceDeliveryZip
+              RunOrder: 1
+              # Until native tagging is suported by CFN
+            - Name: ApplyTags
+              ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Provider: Lambda
+                Version: 1
+              Configuration:
+                FunctionName: !Ref TaggingLambda
+                UserParameters: !Sub '{"clustername": "{{ cookiecutter.prod_cluster_name }}", "stackname": "${ProjectName}-prod-stack-cfn", "accountid": "${AWS::AccountId}", "region": "${AWS::Region}", "servicename": "{{ cookiecutter.project_slug }}-prod-cf"}'
+              RunOrder: 2
+        {%- endif %}
+{%- endif %}
+
+# Tagging Lambda Resources
+  TaggingLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      ManagedPolicyArns:
+        - !Ref TaggingLambdaPolicy
+        -  arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  TaggingLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "${ProjectName}-ecs-service-tagger"
+
+  TaggingLambdaPolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      Description: Policy used by ECS Tagging Lambda
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Resource:
+              - "*"
+            Effect: Allow
+            Action:
+              - codepipeline:PutJobSuccessResult
+              - codepipeline:PutJobFailureResult
+          - Resource:
+              - "*"
+            Effect: Allow
+            Action:
+              - ecs:DescribeServices
+              - ecs:UpdateService
+              - ecs:TagResource
+              - ecs:UntagResource
+          - Resource:
+              - "*"
+            Effect: Allow
+            Action:
+              - cloudformation:DescribeStacks
+              - cloudfromation:ListExports
+
+  TaggingLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Code: helpers/lambda/ecs-tagging
+      Description: Tags ECS services in Codepipeline
+      FunctionName: !Sub "${ProjectName}-ecs-service-tagger"
+      Handler: function.handler
+      Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:dpp-boto3:1"
+      MemorySize: 512
+      Role: !GetAtt TaggingLambdaRole.Arn
+      Runtime: python3.6
+      Timeout: 10
+      Tags:
+        - Key: "CNCA"
+          Value: "codepipeline"
+
+
+Outputs:
+  EcrRepository:
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrImageRepository}"
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'EcrRepository' ] ]

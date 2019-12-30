@@ -1,0 +1,49 @@
+{% set create_dns_record = 'N' -%}
+{% if cookiecutter.squad_name+'.persgroep.cloud' in cookiecutter.test_service_dnsname -%}
+    {% set create_dns_record = 'Y' %}
+{%- endif -%}
+{
+{%- if cookiecutter.deploy_test == "True" %}
+    "Parameters": {
+        "ClusterNameParam": "{{ cookiecutter.non_prod_cluster_name }}",
+        "VpcIdParam": "{{ cookiecutter.non_prod_vpc_id }}",
+        "PrivateSubnetsParam": "{{ cookiecutter.non_prod_private_subnets }}",
+        "AlbNameParam": "{{ cookiecutter.non_prod_alb_name }}",
+        "AlbArnParam": "{{ cookiecutter.non_prod_alb_arn }}",
+        "AlbSecurityGroupIdParam": "{{ cookiecutter.non_prod_alb_security_group }}",
+        "AlbHostedZoneIdParam": "{{ cookiecutter.non_prod_alb_hosted_zone }}",
+        "AlbDnsNameParam": "{{ cookiecutter.non_prod_alb_dns }}",
+        "AlbHttpsListnerArnParam": "{{ cookiecutter.non_prod_alb_https_listener_arn }}",
+        "ServiceName": "{{ cookiecutter.project_slug }}",
+        "EnvironmentName": "test",
+        "DnsName": "{{ cookiecutter.test_service_dnsname }}",
+        "TaskCpu": "{{ cookiecutter.container_cpu|int }}",
+        "TaskMemory": "{{ cookiecutter.container_memory|int }}",
+        "ContainerPort": "{{ cookiecutter.container_port }}",
+        "ContainerCpu": "{{ cookiecutter.container_cpu|int - 128 if cookiecutter.enable_xray == 'True' else cookiecutter.container_cpu }}",
+        "ContainerMemory": "{{ cookiecutter.container_memory|int - 256 if cookiecutter.enable_xray == 'True' else cookiecutter.container_memory }}",
+        "MininumContainerCount": "{{ cookiecutter.non_prod_minimum_containers }}",
+        "MaximumContainerCount": "{{ cookiecutter.non_prod_maximum_containers }}",
+        "ScalingEvaluationPeriods": "{{ cookiecutter.scaling_evaluation_periods }}",
+        "CpuScaleOutThreshold": "{{ cookiecutter.cpu_scale_out_threshold }}",
+        "CpuScaleInThreshold": "{{ cookiecutter.cpu_scale_in_threshold }}",
+        "TimedScaleInScheduleParam": "{{ cookiecutter.non_prod_timed_scale_in_schedule }}",
+        "TimedSaleInMinContainersParam": "{{ cookiecutter.non_prod_timed_scale_in_min_containers }}",
+        "TimedSaleInMaxContainersParam": "{{ cookiecutter.non_prod_timed_scale_in_max_containers }}",
+        "TimedScaleOutScheduleParam": "{{ cookiecutter.non_prod_timed_scale_out_schedule }}",
+        "CreateDnsRecord": "{{ create_dns_record }}",
+        "ServiceHealthCheckPathParam": "{{ cookiecutter.service_healthcheck_path }}",
+        "ServiceHealthCheckGracePeriodParam": "300",
+        "ServiceHealthCheckMatcherParam": "200",
+        "BackendResponseTimeThresholdSec": "0.5",
+        "CertificateArn": "{{ cookiecutter.non_prod_ssl_certificate_arn }}",
+        "CustomDomainParam": "{{ cookiecutter.test_custom_domainname }}",
+        "AlertSnsTopic": "{{ cookiecutter.alerting_sns_topic }}"
+    },
+    "Tags": {
+        "Application": "{{ cookiecutter.project_slug }}",
+        "Squad": "{{ cookiecutter.squad_name }}",
+        "Environment": "test"
+    }
+{% endif -%}
+}
