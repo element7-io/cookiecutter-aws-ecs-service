@@ -1,12 +1,13 @@
-package net.persgroep.infrastructure.pipeline.pipelinetest;
+package hello;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class PipelineTestApplication {
+public class HelloworldApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(PipelineTestApplication.class, args);
+		SpringApplication.run(HelloworldApplication.class, args);
 	}
+
 }
