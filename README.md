@@ -1,7 +1,6 @@
-# Cookiecutter java-docker
+# Cookiecutter aws-ecs-service
 
-
-Cookiecutter is a CLI utility that bootstraps projects from existing templates. **This repository contains an opinionated cookiecutter template to deploy a docker container as a fargate service on an existing ECS Cluster.** A project instantiated from this template can be used a hosting layer for other cookiecutters, such as [cookiecutter-java-docker](https://bitbucket.org/persgroep/cookiecutter-java-docker)
+Cookiecutter is a tool that creates projects from project templates. **This repository contains an cookiecutter template to deploy a docker container as a fargate service on an existing ECS Cluster.**
 
 ### Prerequisites
 
@@ -27,15 +26,8 @@ sudo choco install python
 sudo choco install awscli
 pip install cookiecutter
 ```
-For make and other Unix Utilities, you can download [unxUtils.1.0.0.1.nupkg](https://artifactory.persgroep.cloud/artifactory/ext-release-local/org/chocolatey/UnxUtils/1.0.0.1/unxUtils.1.0.0.1.nupkg)
-```
- sudo choco install unxUtils.1.0.0.1.nupkg
-```
 
 #### Required AWS Resources
-
-> Important remark: Previously there was a HARD dependency on https://bitbucket.org/persgroep/cookiecutter-aws-ecs-cluster. In the current version this dependency is completely removed. So as long as you put the right AWS references in the cookiecutter config file (see below) you should be able to deploy this service on EVERY possible ECS cluster.
-
 
 - **AWS CLI:** you should be logged in (using onelogin).
 - **An ECS Cluster:** your could use https://bitbucket.org/persgroep/cookiecutter-aws-ecs-cluster
