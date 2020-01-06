@@ -2,7 +2,19 @@
 
 Cookiecutter is a tool that creates projects from project templates. **This repository contains an cookiecutter template to deploy a docker container as a fargate service on an existing ECS Cluster.**
 
-### Prerequisites
+## Spring Boot
+Out of box the  container comes with a Hello World Spring boot installed.
+The spring boot is a web application with a REST Api generated using [Spring Initializr](https://start.spring.io/])
+
+Both Maven an Gradle are supported as build tool for your Java application.  
+
+### Spring Boot with Docker
+The Spring boot app is setup based on the document: [Spring Boot with Docker](https://spring.io/guides/gs/spring-boot-docker/)
+
+[jib](https://github.com/GoogleContainerTools/jib) has been chosen to Containerize the Spring boot Application
+
+
+## Prerequisites
 
 In order to run this cookiecutter template, you need to install following:
 
@@ -16,6 +28,7 @@ In order to run this cookiecutter template, you need to install following:
 - aws cli (`check: aws --version`)
 - make tools (`make --version`)
 - docker
+- [Amazon ECR Docker Credential Helper](https://github.com/awslabs/amazon-ecr-credential-helper)
 
 #### Windows
 
@@ -54,7 +67,6 @@ default_context:
     # AWS Account Settings
     aws_account_id: 123456789012
     aws_default_region: eu-west-1
-    squad_name: ateam
 
     # Non-prod Cluster & ALB settings
     non_prod_cluster_name: shared1-nonprod-cluster-cf
@@ -68,15 +80,15 @@ default_context:
     non_prod_alb_https_listener_arn: arn:aws:elasticloadbalancing:eu-west-1:400007416746:listener/app/shared1-nonprod-public-alb-cf/e3c9d44c9873bfc2/6851af0e7c137fe7
 
     # Production Cluster & ALB settings
-    prod_cluster_name: shared1-prod-cluster-cf
-    prod_vpc_id: vpc-04ddb062
-    prod_private_subnets: subnet-858936cd,subnet-3303ea69,subnet-be5ef0d8
-    prod_alb_name: shared1-prod-public-alb-cf
-    prod_alb_arn: arn:aws:elasticloadbalancing:eu-west-1:400007416746:loadbalancer/app/shared1-prod-public-alb-cf/e3c9d44c9873bfc2
-    prod_alb_security_group: sg-0987ee9358510ee0o
-    prod_alb_hosted_zone: Z8Hk89YJN6H7U5
-    prod_alb_dns: shared1-prod-public-alb-cf-515606587.eu-west-1.elb.amazonaws.com
-    prod_alb_https_listener_arn: arn:aws:elasticloadbalancing:eu-west-1:400007416746:listener/app/shared1-prod-public-alb-cf/e3c9d44c9873bfc2/6851af0e7c137fe7
+    prod_cluster_name: ""
+    prod_vpc_id: ""
+    prod_private_subnets: ""
+    prod_alb_name: ""
+    prod_alb_arn: ""
+    prod_alb_security_group: ""
+    prod_alb_hosted_zone: ""
+    prod_alb_dns: ""
+    prod_alb_https_listener_arn: ""
 
     # Service settings
     build_automation_tool: Maven
@@ -129,6 +141,7 @@ default_context:
 
 *Note: depending on the environments in your AWS account you should/could provide empty values for the prod or nonprod variables (don't omit these variables as this will break Cookiecutter, use empty strings as value instead).*
 
+service_log_group (optional): a Custom Clouwdwacht log group name
 
 ## Usage
 

@@ -1,7 +1,3 @@
-{% set create_dns_record = 'N' -%}
-{% if cookiecutter.squad_name+'.persgroep.cloud' in cookiecutter.prod_service_dnsname -%}
-    {% set create_dns_record = 'Y' %}
-{%- endif -%}
 {
 {%- if cookiecutter.deploy_prod == "True" -%}
     "Parameters": {
@@ -9,7 +5,6 @@
         "VpcIdParam": "{{ cookiecutter.prod_vpc_id }}",
         "PrivateSubnetsParam": "{{ cookiecutter.prod_private_subnets }}",
         "AlbNameParam": "{{ cookiecutter.prod_alb_name }}",
-        "AlbArnParam": "{{ cookiecutter.prod_alb_arn }}",
         "AlbSecurityGroupIdParam": "{{ cookiecutter.prod_alb_security_group }}",
         "AlbHostedZoneIdParam": "{{ cookiecutter.prod_alb_hosted_zone }}",
         "AlbDnsNameParam": "{{ cookiecutter.prod_alb_dns }}",
@@ -31,7 +26,6 @@
         "TimedSaleInMinContainersParam": "{{ cookiecutter.prod_timed_scale_in_min_containers }}",
         "TimedSaleInMaxContainersParam": "{{ cookiecutter.prod_timed_scale_in_max_containers }}",
         "TimedScaleOutScheduleParam": "{{ cookiecutter.prod_timed_scale_out_schedule }}",
-        "CreateDnsRecord": "{{ create_dns_record }}",
         "ServiceHealthCheckPathParam": "{{ cookiecutter.service_healthcheck_path }}",
         "ServiceHealthCheckGracePeriodParam": "300",
         "ServiceHealthCheckMatcherParam": "200",
@@ -42,7 +36,6 @@
     },
     "Tags": {
         "Application": "{{ cookiecutter.project_slug }}",
-        "Squad": "{{ cookiecutter.squad_name }}",
         "Environment": "prod"
     }
 {%- endif -%}

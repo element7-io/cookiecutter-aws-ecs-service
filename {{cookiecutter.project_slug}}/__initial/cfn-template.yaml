@@ -3,141 +3,6 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: >
   {{ cookiecutter.project_name }}
 
-Metadata:
-  AWS::CloudFormation::Interface:
-    ParameterGroups:
-      - Label:
-          default: Cluster
-        Parameters:
-          - ClusterNameParam
-          - VpcIdParam
-          - PrivateSubnetsParam
-      - Label:
-          default: LoadBalancer
-        Parameters:
-          - AlbNameParam
-          - AlbArnParam
-          - AlbSecurityGroupIdParam
-          - AlbHostedZoneIdParam
-          - AlbDnsNameParam
-          - AlbHttpsListnerArnParam
-      - Label:
-          default: Service
-        Parameters:
-          - ServiceName
-          - EnvironmentName
-          - DnsName
-          - Role
-          - ServiceHealthCheckPathParam
-          - ServiceHealthCheckGracePeriodParam
-          - ServiceHealthCheckMatcherParam
-      - Label:
-          default: Service Auto Scaling
-        Parameters:
-          - ScalingEvaluationPeriods
-          - CpuScaleOutThreshold
-          - CpuScaleInThreshold
-          - MininumContainerCount
-          - MaximumContainerCount
-          - TimedScaleInScheduleParam
-          - TimedSaleInMinContainersParam
-          - TimedSaleInMaxContainersParam
-          - TimedScaleOutScheduleParam
-      - Label:
-          default: Task
-        Parameters:
-          - TaskCpu
-          - TaskMemory
-          - ImageUrl
-          - ImageTag
-          - ContainerPort
-          - ContainerCpu
-          - ContainerMemory
-      - Label:
-          default: API Gateway
-        Parameters:
-          - CertificateArn
-          - CustomDomainParam
-      - Label:
-          default: Monitoring
-        Parameters:
-          - AlertSnsTopic
-          - BackendHttp5xxErrorsThresholdCount
-          - BackendResponseTimeThresholdSec
-    ParameterLabels:
-      ClusterNameParam:
-        default: Cluster name
-      VpcIdParam:
-        default: Vpc ID
-      PrivateSubnetsParam:
-        default: Private subnets
-      AlbNameParam:
-        default: ALB name
-      AlbArnParam:
-        default: ALB arn
-      AlbSecurityGroupIdParam:
-        default: ALB security group
-      AlbHostedZoneIdParam:
-        default: ALB hosted zone id
-      AlbDnsNameParam:
-        default: ALB DNS name
-      AlbHttpsListnerArnParam:
-        default: ALB HTTPS Listener arn
-      ServiceName:
-        default: Service name
-      EnvironmentName:
-        default: Environment
-      DnsName:
-        default: DNS name
-      Role:
-        default: IAM task role
-      ServiceHealthCheckPathParam:
-        default: Health check path
-      ServiceHealthCheckGracePeriodParam:
-        default: Health check grace period
-      ServiceHealthCheckMatcherParam:
-        default: Health check HTTP codes
-      BackendHttp5xxErrorsThresholdCount:
-        default: Backend HTTP 5xx errors
-      BackendResponseTimeThresholdSec:
-        default: Backend response time
-      ImageTag:
-        default: Image tag
-      ScalingEvaluationPeriods:
-        default: Scaling evaluation periods
-      CpuScaleOutThreshold:
-        default: CPU scale out threshold
-      CpuScaleInThreshold:
-        default: CPU scale in threshold
-      MininumContainerCount:
-        default: Minimum number of containers
-      MaximumContainerCount:
-        default: Maximum number of containers
-      TimedScaleInScheduleParam:
-        default: Cron Schedule for scaling in
-      TimedSaleInMinContainersParam:
-        default: Minimum number of containers when scheduled scaled in
-      TimedSaleInMaxContainersParam:
-        default: Maximum number of containers when scheduled scaled in
-      TimedScaleOutScheduleParam:
-        default: Cron Schedule for scaling out
-      TaskCpu:
-        default: Task CPU capacity
-      TaskMemory:
-        default: Task memory capacity
-      ContainerPort:
-        default: Container Port
-      ContainerCpu:
-        default: Container CPU capacity
-      ContainerMemory:
-        default: Container memory capacity
-      CertificateArn:
-        default: Certificate ARN
-      CustomDomainParam:
-        default: Custom doman name
-      AlertSnsTopic:
-        default: Alert topic
-
 Parameters:
   ClusterNameParam :
     Type: String
@@ -151,9 +16,6 @@ Parameters:
   AlbNameParam:
     Type: String
     Description: The ALB name
-  AlbArnParam:
-    Type: String
-    Description: The ALB arn
   AlbSecurityGroupIdParam:
     Type: String
     Description: The ALB's security group
@@ -599,6 +461,7 @@ Resources:
       - Service
       - ServiceScaleInPolicyNonProd
 
+{%- if cookiecutter.deploy_prod == "True" -%}
   # Scaling policies for PRODUCTION
   ServiceScalingTargetProd:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
@@ -610,7 +473,7 @@ Resources:
       RoleARN: !GetAtt ServiceAutoScalingRole.Arn
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
-{%- if cookiecutter.prod_enable_scheduled_scaling == "True" %}
+      {%- if cookiecutter.prod_enable_scheduled_scaling == "True" %}
       ScheduledActions:
         - ScheduledActionName: ScaleDownDuringNightsAndWeekends
           Schedule: !Ref TimedScaleInScheduleParam
@@ -622,7 +485,7 @@ Resources:
           ScalableTargetAction:
             MinCapacity: !Ref MininumContainerCount
             MaxCapacity: !Ref MaximumContainerCount
-{%- endif %}
+      {%- endif %}
     DependsOn:
       - Service
       - ServiceAutoScalingRole
@@ -710,6 +573,7 @@ Resources:
     DependsOn:
       - Service
       - ServiceScaleInPolicyProd
+{%- endif %}
 
   # A security group to allow incoming traffic to the containers.
   ServiceSecurityGroup:
