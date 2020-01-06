@@ -9,6 +9,7 @@
         "AlbHostedZoneIdParam": "{{ cookiecutter.non_prod_alb_hosted_zone }}",
         "AlbDnsNameParam": "{{ cookiecutter.non_prod_alb_dns }}",
         "AlbHttpsListnerArnParam": "{{ cookiecutter.non_prod_alb_https_listener_arn }}",
+        "AlbRulePriority": "{{ cookiecutter.non_prod_alb_listener_rule_priority }}",
         "ServiceName": "{{ cookiecutter.project_slug }}",
         "EnvironmentName": "acc",
         "DnsName": "{{ cookiecutter.acc_service_dnsname }}",

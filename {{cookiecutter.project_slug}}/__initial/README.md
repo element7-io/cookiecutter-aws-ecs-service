@@ -17,7 +17,7 @@ The ECR repository and CodePipeline resources are automatically created when the
 
 This repository contains the {{ cookiecutter.project_name }} service. 
 It contains the necessary cloudformation templates and configuration files to be deployed on AWS. 
-The repository was bootstrapped using the [java-docker cookiecutter for Maven template](https://bitbucket.org/persgroep/cookiecutter-java-docker-maven/).
+The repository was bootstrapped using the [Cookiecutter ECS service template](https://github.com/element7-io/cookiecutter-aws-ecs-service).
 
 Using bitbucket pipelines, the application will automatically be built and packaged in a docker image which is automatically uploaded into the above ECR 
 repository. 

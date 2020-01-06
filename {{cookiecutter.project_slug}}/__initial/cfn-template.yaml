@@ -28,6 +28,9 @@ Parameters:
   AlbHttpsListnerArnParam:
     Type: String
     Description: The ALB's Listener arn
+  AlbRulePriority:
+    Type: Integer
+    Description: The ALB's Listener rule priority
   ServiceName:
     Type: String
     Default: nginx
@@ -165,12 +168,6 @@ Conditions:
   ShouldCreateDnsRecord: !Equals [!Ref CreateDnsRecord, 'Y']
 
 Resources:
-  ALBInfo:
-    Type: Custom::ALBInfo
-    Properties:
-      ServiceToken: !ImportValue CustomResourceInfoLambaArn
-      AlbName: !Ref AlbNameParam
-
   # This role is used by the AWS Tasks themselves. In fact it can be assumed by the Amazon ECS
   # container agent and the Docker daemon.
   EcsTaskExecutionRole:
@@ -612,7 +609,7 @@ Resources:
           Values:
             - !Ref DnsName
       ListenerArn: !Ref AlbHttpsListnerArnParam
-      Priority: !GetAtt ALBInfo.HttpsListenerPriority
+      Priority: !Ref AlbRulePriority
 
   # DNS Record that points to the ECS cluster ALB
   DnsRecordAlb:
