@@ -36,10 +36,9 @@ Parameters:
     Type: String
     Description: The name of the environment.
     AllowedValues:
-      - test
       - acc
       - prod
-    Default: test
+    Default: acc
   DnsName:
     Type: String
     Description: A host for which to forward traffic to the target group.
@@ -167,7 +166,7 @@ Conditions:
 
 Resources:
   ALBInfo:
-    Type: "Custom::ALBInfo"
+    Type: Custom::ALBInfo
     Properties:
       ServiceToken: !ImportValue CustomResourceInfoLambaArn
       AlbName: !Ref AlbNameParam
@@ -177,7 +176,7 @@ Resources:
   EcsTaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "EcsTaskExecutionRoleFor-${ServiceName}-${EnvironmentName}-cf"
+      RoleName: !Sub EcsTaskExecutionRoleFor-${ServiceName}-${EnvironmentName}-cf
       AssumeRolePolicyDocument:
         Statement:
         - Effect: Allow
@@ -187,7 +186,7 @@ Resources:
             - sts:AssumeRole
       Path: /
       Policies:
-        - PolicyName: !Sub "ECS${ServiceName}${EnvironmentName}TaskExecutionPolicy"
+        - PolicyName: !Sub ECS${ServiceName}${EnvironmentName}TaskExecutionPolicy
           PolicyDocument:
             Statement:
             - Effect: Allow
@@ -206,7 +205,7 @@ Resources:
   EcsTaskRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "EcsTaskRoleFor-${ServiceName}-${EnvironmentName}-cf"
+      RoleName: !Sub EcsTaskRoleFor-${ServiceName}-${EnvironmentName}-cf
       AssumeRolePolicyDocument:
         Statement:
           - Effect: Allow
@@ -216,7 +215,7 @@ Resources:
               - sts:AssumeRole
       Path: /
       Policies:
-        - PolicyName: !Sub "ECS${ServiceName}${EnvironmentName}TaskPolicy"
+        - PolicyName: !Sub ECS${ServiceName}${EnvironmentName}TaskPolicy
           PolicyDocument:
             Statement:
               - Effect: Allow
@@ -230,7 +229,7 @@ Resources:
   ServiceAutoScalingRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "EcsAutoScalingnFor-${ServiceName}-${EnvironmentName}-cf"
+      RoleName: !Sub EcsAutoScalingnFor-${ServiceName}-${EnvironmentName}-cf
       AssumeRolePolicyDocument:
         Statement:
           - Effect: Allow
@@ -239,7 +238,7 @@ Resources:
             Action: sts:AssumeRole
       Path: /
       Policies:
-        - PolicyName: !Sub "${ServiceName}${EnvironmentName}AutoScalingPolicy"
+        - PolicyName: !Sub ${ServiceName}${EnvironmentName}AutoScalingPolicy
           PolicyDocument:
             Statement:
               - Effect: Allow
@@ -255,7 +254,7 @@ Resources:
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub "${ServiceName}-${EnvironmentName}-cf"
+      Family: !Sub ${ServiceName}-${EnvironmentName}-cf
       Cpu: !Ref TaskCpu
       Memory: !Ref TaskMemory
       NetworkMode: awsvpc
@@ -277,7 +276,7 @@ Resources:
         - Name: !Ref ServiceName
           Cpu: !Ref ContainerCpu
           Memory: !Ref ContainerMemory
-          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ cookiecutter.project_slug }}-repo:${ImageTag}"
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ cookiecutter.project_slug }}-repo:${ImageTag}
           PortMappings:
             - ContainerPort: !Ref ContainerPort
           Environment:
@@ -291,7 +290,7 @@ Resources:
             LogDriver: awslogs
             Options:
 {%- if cookiecutter.service_log_group != "" %}
-              awslogs-group: !Sub "{{ cookiecutter.service_log_group }}"
+              awslogs-group: !Sub {{ cookiecutter.service_log_group }}
 {%- else %}
               awslogs-group: !Ref ServiceLogGroup
 {%- endif %}
@@ -301,7 +300,7 @@ Resources:
   ServiceLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "${ServiceName}-${EnvironmentName}-cf"
+      LogGroupName: !Sub ${ServiceName}-${EnvironmentName}-cf
       RetentionInDays: 7
 {%- endif %}
 
@@ -313,7 +312,7 @@ Resources:
     DependsOn:
       - ServiceLoadBalancerRule
     Properties:
-      ServiceName: !Sub "${ServiceName}-${EnvironmentName}-cf"
+      ServiceName: !Sub ${ServiceName}-${EnvironmentName}-cf
       Cluster: !Ref ClusterNameParam
       LaunchType: FARGATE
       DeploymentConfiguration:
@@ -340,10 +339,10 @@ Resources:
   ServiceDiscovery:
     Type: AWS::ServiceDiscovery::Service
     Properties:
-      Name: !Sub "${ServiceName}.${EnvironmentName}"
+      Name: !Sub ${ServiceName}.${EnvironmentName}
       DnsConfig:
         DnsRecords: [{Type: A, TTL: "10"}]
-        NamespaceId: "{{ cookiecutter.service_discovery_namespace }}"
+        NamespaceId: {{ cookiecutter.service_discovery_namespace }}
       HealthCheckCustomConfig:
         FailureThreshold: 1
 {%- endif %}
@@ -355,7 +354,7 @@ Resources:
     Properties:
       MinCapacity: !Ref MininumContainerCount
       MaxCapacity: !Ref MaximumContainerCount
-      ResourceId: !Sub "service/${ClusterNameParam}/${ServiceName}-${EnvironmentName}-cf"
+      ResourceId: !Sub service/${ClusterNameParam}/${ServiceName}-${EnvironmentName}-cf
       RoleARN: !GetAtt ServiceAutoScalingRole.Arn
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
@@ -379,7 +378,7 @@ Resources:
   ServiceScaleOutPolicyNonProd:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Properties:
-      PolicyName: !Sub "${ServiceName}-${EnvironmentName}ScaleOutPolicy-cf"
+      PolicyName: !Sub ${ServiceName}-${EnvironmentName}ScaleOutPolicy-cf
       PolicyType: StepScaling
       ScalingTargetId: !Ref ServiceScalingTargetNonProd
       StepScalingPolicyConfiguration:
@@ -394,7 +393,7 @@ Resources:
   ServiceScaleInPolicyNonProd:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Properties:
-      PolicyName: !Sub "${ServiceName}-${EnvironmentName}ScaleInPolicy-cf"
+      PolicyName: !Sub ${ServiceName}-${EnvironmentName}ScaleInPolicy-cf
       PolicyType: StepScaling
       ScalingTargetId: !Ref ServiceScalingTargetNonProd
       StepScalingPolicyConfiguration:
@@ -422,7 +421,7 @@ Resources:
         - Name: ClusterName
           Value: !Ref ClusterNameParam
         - Name: ServiceName
-          Value: !Sub "${ServiceName}-${EnvironmentName}-cf"
+          Value: !Sub ${ServiceName}-${EnvironmentName}-cf
       ComparisonOperator: GreaterThanThreshold
       MetricName: CPUUtilization
     DependsOn:
@@ -445,7 +444,7 @@ Resources:
         - Name: ClusterName
           Value: !Ref ClusterNameParam
         - Name: ServiceName
-          Value: !Sub "${ServiceName}-${EnvironmentName}-cf"
+          Value: !Sub ${ServiceName}-${EnvironmentName}-cf
       ComparisonOperator: LessThanThreshold
       MetricName: CPUUtilization
     DependsOn:
@@ -459,7 +458,7 @@ Resources:
     Properties:
       MinCapacity: !Ref MininumContainerCount
       MaxCapacity: !Ref MaximumContainerCount
-      ResourceId: !Sub "service/${ClusterNameParam}/${ServiceName}-${EnvironmentName}-cf"
+      ResourceId: !Sub service/${ClusterNameParam}/${ServiceName}-${EnvironmentName}-cf
       RoleARN: !GetAtt ServiceAutoScalingRole.Arn
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
@@ -484,7 +483,7 @@ Resources:
   ServiceScaleOutPolicyProd:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Properties:
-      PolicyName: !Sub "${ServiceName}-${EnvironmentName}ScaleOutPolicy-cf"
+      PolicyName: !Sub ${ServiceName}-${EnvironmentName}ScaleOutPolicy-cf
       PolicyType: StepScaling
       ScalingTargetId: !Ref ServiceScalingTargetProd
       StepScalingPolicyConfiguration:
@@ -500,7 +499,7 @@ Resources:
   ServiceScaleInPolicyProd:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Properties:
-      PolicyName: !Sub "${ServiceName}-${EnvironmentName}ScaleInPolicy-cf"
+      PolicyName: !Sub ${ServiceName}-${EnvironmentName}ScaleInPolicy-cf
       PolicyType: StepScaling
       ScalingTargetId: !Ref ServiceScalingTargetProd
       StepScalingPolicyConfiguration:
@@ -529,7 +528,7 @@ Resources:
         - Name: ClusterName
           Value: !Ref ClusterNameParam
         - Name: ServiceName
-          Value: !Sub "${ServiceName}-${EnvironmentName}-cf"
+          Value: !Sub ${ServiceName}-${EnvironmentName}-cf
       ComparisonOperator: GreaterThanThreshold
       MetricName: CPUUtilization
     DependsOn:
@@ -553,7 +552,7 @@ Resources:
         - Name: ClusterName
           Value: !Ref ClusterNameParam
         - Name: ServiceName
-          Value: !Sub "${ServiceName}-${EnvironmentName}-cf"
+          Value: !Sub ${ServiceName}-${EnvironmentName}-cf
       ComparisonOperator: LessThanThreshold
       MetricName: CPUUtilization
     DependsOn:
@@ -574,7 +573,7 @@ Resources:
         SourceSecurityGroupId: !Ref AlbSecurityGroupIdParam
       Tags:
         - Key: Name
-          Value: !Sub "app-${ServiceName}-${EnvironmentName}-cf"
+          Value: !Sub app-${ServiceName}-${EnvironmentName}-cf
 
   # A target group. This is used for keeping track of all the tasks, and
   # what IP addresses / port numbers they have. You can query it yourself,
@@ -584,7 +583,7 @@ Resources:
   ServiceTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub "{{ cookiecutter.cloudformation_resource_prefix }}-${EnvironmentName}-cf"
+      Name: !Sub {{ cookiecutter.cloudformation_resource_prefix }}-${EnvironmentName}-cf
       TargetType: ip
       Port: !Ref ContainerPort
       Protocol: HTTP
@@ -607,7 +606,7 @@ Resources:
     Properties:
       Actions:
         - TargetGroupArn: !Ref ServiceTargetGroup
-          Type: "forward"
+          Type: forward
       Conditions:
         - Field: host-header
           Values:
@@ -620,8 +619,8 @@ Resources:
     Type: AWS::Route53::RecordSetGroup
     Condition: ShouldCreateDnsRecord
     Properties:
-      HostedZoneName: "{{ cookiecutter.dns_suffix }}."
-      Comment: !Sub "Alias record for ${EnvironmentName} of ${ServiceName}"
+      HostedZoneName: {{ cookiecutter.dns_suffix }}.
+      Comment: !Sub Alias record for ${EnvironmentName} of ${ServiceName}
       RecordSets:
       - Name: !Ref DnsName
         Type: A
@@ -634,10 +633,9 @@ Resources:
   # backend response time exceeds the configured threshold an alarm alert will be triggered.
   AlarmBackendResponseTime:
     Type: AWS::CloudWatch::Alarm
-    Condition: ShouldConfigureAlarms
     Properties:
-      AlarmDescription: !Sub "Alarm for backend response time of ${ServiceName}."
-      AlarmName: !Sub "${ServiceName}-${EnvironmentName}-backend-response-time"
+      AlarmDescription: !Sub Alarm for backend response time of ${ServiceName}.
+      AlarmName: !Sub ${ServiceName}-${EnvironmentName}-backend-response-time
       AlarmActions:
       - !Ref AlertSnsTopic
       MetricName: TargetResponseTime
@@ -650,9 +648,7 @@ Resources:
       TreatMissingData: notBreaching
       Dimensions:
       - Name: LoadBalancer
-        Value:
-          Fn::ImportValue:
-            !Sub "${SharedResourcesStackName}:${LoadbalancerType}ALB:FullName"
+        Value: !Ref AlbNameParam
       - Name: TargetGroup
         Value: !GetAtt ServiceTargetGroup.TargetGroupFullName
 
@@ -661,25 +657,22 @@ Resources:
   # HTTP 5XX errors than the configured threshold an alarm alert will be triggered.
   AlarmBackendHttp5xxErrors:
     Type: AWS::CloudWatch::Alarm
-    Condition: ShouldConfigureAlarms
     Properties:
-      AlarmDescription: !Sub "Alarm for HTTP 5xx errors by backend of ${ServiceName}."
-      AlarmName: !Sub "${ServiceName}-${EnvironmentName}-backend-http-5xx"
+      AlarmDescription: !Sub Alarm for HTTP 5xx errors by backend of ${ServiceName}.
+      AlarmName: !Sub ${ServiceName}-${EnvironmentName}-backend-http-5xx
       AlarmActions:
       - !Ref AlertSnsTopic
       MetricName: HTTPCode_Target_5XX_Count
       Namespace: AWS/ApplicationELB
-      Statistic: "Sum"
-      Period: "900"
-      EvaluationPeriods: "1"
+      Statistic: Sum
+      Period: 900
+      EvaluationPeriods: 1
       Threshold: !Ref BackendHttp5xxErrorsThresholdCount
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
       Dimensions:
       - Name: LoadBalancer
-        Value:
-          Fn::ImportValue:
-            !Sub "${SharedResourcesStackName}:${LoadbalancerType}ALB:FullName"
+        Value: !Ref AlbNameParam
       - Name: TargetGroup
         Value: !GetAtt ServiceTargetGroup.TargetGroupFullName
 
@@ -688,46 +681,40 @@ Resources:
   # instance for more than half of the time an alarm alert will be triggered.
   AlarmBackendUnhealthyHosts:
     Type: AWS::CloudWatch::Alarm
-    Condition: ShouldConfigureAlarms
     Properties:
-      AlarmDescription: !Sub "Alarm for unhealthy backends of ${ServiceName}."
-      AlarmName: !Sub "${ServiceName}-${EnvironmentName}-backend-unhealthy"
+      AlarmDescription: !Sub Alarm for unhealthy backends of ${ServiceName}.
+      AlarmName: !Sub ${ServiceName}-${EnvironmentName}-backend-unhealthy
       AlarmActions:
       - !Ref AlertSnsTopic
       MetricName: UnHealthyHostCount
       Namespace: AWS/ApplicationELB
       ExtendedStatistic: "p50"
-      Period: "900"
-      EvaluationPeriods: "1"
-      Threshold: "1"
+      Period: 900
+      EvaluationPeriods: 1
+      Threshold: 1.0
       ComparisonOperator: GreaterThanOrEqualToThreshold
       Dimensions:
       - Name: LoadBalancer
-        Value:
-          Fn::ImportValue:
-            !Sub "${SharedResourcesStackName}:${LoadbalancerType}ALB:FullName"
+        Value: !Ref AlbNameParam
       - Name: TargetGroup
         Value: !GetAtt ServiceTargetGroup.TargetGroupFullName
+{%- if cookiecutter.enable_api_gateway == "True" %}
 
-
-# -- Cloudwatch resources
-
-{% if cookiecutter.enable_api_gateway == "True" %}
-# -- API Gateway related resources
+# >>>>> API Gateway related resources
 #
   # Assure API Gateways is enabled in the AWS Account otherwise 'AWS::ApiGateway::Account' will fail!
   # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-account.html
   ApiKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
-      Name: !Sub "${ServiceName}-${EnvironmentName}-dummy-key"
+      Name: !Sub ${ServiceName}-${EnvironmentName}-dummy-key
       Description: Dummy API key to ensure API Gateway is enabled
       Enabled: false
 
   ApiGatewayCloudWatchRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "api-gateway-${ServiceName}-${EnvironmentName}"
+      RoleName: !Sub api-gateway-${ServiceName}-${EnvironmentName}
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -750,8 +737,8 @@ Resources:
     DependsOn: ApiGatewayAccount
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: !Sub "${ServiceName}-${EnvironmentName}"
-      Description: !Sub "${ServiceName}-${EnvironmentName}"
+      Name: !Sub ${ServiceName}-${EnvironmentName}
+      Description: !Sub ${ServiceName}-${EnvironmentName}
       EndpointConfiguration:
         Types:
           - {{ cookiecutter.api_gateway_endpoint_type }}
@@ -788,7 +775,7 @@ Resources:
   ApiGatewayAccessLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "${ServiceName}-${EnvironmentName}-ApiGateway-cf"
+      LogGroupName: !Sub ${ServiceName}-${EnvironmentName}-ApiGateway-cf
       RetentionInDays: 7
 
   ApiGatewayDeployment:
@@ -821,13 +808,13 @@ Resources:
         method.request.path.proxy: True
       Integration:
         RequestParameters:
-          integration.request.path.proxy: "method.request.path.proxy"
+          integration.request.path.proxy: method.request.path.proxy
           integration.request.header.x-security-header:  "'{{ cookiecutter.alb_secret }}'"
           integration.request.header.Host: !Sub "'${DnsName}'"
           integration.request.header.x-amzn-Remapped-Host: !Sub "'${DnsName}'"
         IntegrationHttpMethod: ANY
         Type: HTTP_PROXY
-        Uri: !Sub "{{ cookiecutter.api_gateway_proxy_uri }}"
+        Uri: !Sub {{ cookiecutter.api_gateway_proxy_uri }}
 
   # DNS Record API Gateway
   DnsRecordApi:
@@ -835,8 +822,8 @@ Resources:
     DependsOn: ApiGatewayCustomDomainName
     Condition: ShouldCreateDnsRecord
     Properties:
-      HostedZoneName: "{{ cookiecutter.dns_suffix }}."
-      Comment: !Sub "CNAME record for ${EnvironmentName} of ${ServiceName}, Api Gateway Custom Domain Name"
+      HostedZoneName: {{ cookiecutter.dns_suffix }}.
+      Comment: !Sub CNAME record for ${EnvironmentName} of ${ServiceName}, Api Gateway Custom Domain Name
       RecordSets:
       - Name: !Ref CustomDomainParam
         Type: CNAME
