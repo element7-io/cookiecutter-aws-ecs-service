@@ -134,12 +134,14 @@ Parameters:
     Type: Number
     Default: 512
     Description: How much memory in megabytes to give the container
+  {%- if cookiecutter.enable_api_gateway == "True" %}
   CertificateArn:
     Type: String
     Description: ARN of the tls/ssl certificate to use with API Gateway endpoints.
   CustomDomainParam:
     Type: String
     Description: API Gateway custom domain name
+  {%- endif %}
   AlertSnsTopic:
     Type: String
     Description: Contains the ARN of the SNS topic on which alerts should be published.
@@ -162,8 +164,6 @@ Parameters:
 Conditions:
   HasCustomRole: !Not [ !Equals [!Ref Role, ''] ]
   ShouldCreateDnsRecord: !Equals [!Ref CreateDnsRecord, 'Y']
-  CreateProdResources: !Equals [ !Ref EnvironmentName, prod ]
-  CreateNonProdResources: !Not [!Equals [ !Ref EnvironmentName, prod ] ]
 
 Resources:
   ALBInfo:
@@ -261,10 +261,10 @@ Resources:
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
-      ExecutionRoleArn: !Ref EcsTaskExecutionRole
+      ExecutionRoleArn: !GetAtt EcsTaskExecutionRole.Arn
       TaskRoleArn: !If [ HasCustomRole, !Ref Role, !Ref EcsTaskRole ]
       ContainerDefinitions:
-{%- if cookiecutter.enable_xray == "True" %}
+        {%- if cookiecutter.enable_xray == "True" %}
         # See https://github.com/aws-samples/aws-xray-fargate
         - Name: xray-daemon
           Cpu: 128
@@ -273,7 +273,7 @@ Resources:
           PortMappings:
             - ContainerPort: 2000
               Protocol: udp
-{%- endif %}
+        {%- endif %}
         - Name: !Ref ServiceName
           Cpu: !Ref ContainerCpu
           Memory: !Ref ContainerMemory
@@ -311,7 +311,6 @@ Resources:
   Service:
     Type: AWS::ECS::Service
     DependsOn:
-      - TaskDefinition
       - ServiceLoadBalancerRule
     Properties:
       ServiceName: !Sub "${ServiceName}-${EnvironmentName}-cf"
@@ -349,10 +348,10 @@ Resources:
         FailureThreshold: 1
 {%- endif %}
 
+{%- if cookiecutter.deploy_acc == "True" %}
   # Scaling policies for NON-PROD
   ServiceScalingTargetNonProd:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
-    Condition: CreateNonProdResources
     Properties:
       MinCapacity: !Ref MininumContainerCount
       MaxCapacity: !Ref MaximumContainerCount
@@ -360,7 +359,7 @@ Resources:
       RoleARN: !GetAtt ServiceAutoScalingRole.Arn
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
-{%- if cookiecutter.non_prod_enable_scheduled_scaling == "True" %}
+      {%- if cookiecutter.non_prod_enable_scheduled_scaling == "True" %}
       ScheduledActions:
         - ScheduledActionName: ScaleDownDuringNightsAndWeekends
           Schedule: !Ref TimedScaleInScheduleParam
@@ -372,15 +371,13 @@ Resources:
           ScalableTargetAction:
             MinCapacity: !Ref MininumContainerCount
             MaxCapacity: !Ref MaximumContainerCount
-{%- endif %}
+      {%- endif %}
     DependsOn:
       - Service
-      - ServiceAutoScalingRole
 
   # Scaling policies for NON-PROD
   ServiceScaleOutPolicyNonProd:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: CreateNonProdResources
     Properties:
       PolicyName: !Sub "${ServiceName}-${EnvironmentName}ScaleOutPolicy-cf"
       PolicyType: StepScaling
@@ -392,12 +389,10 @@ Resources:
         StepAdjustments:
           - ScalingAdjustment: 1
             MetricIntervalLowerBound: 0
-    DependsOn: ServiceScalingTargetNonProd
 
   # Scaling policies for NON-PROD
   ServiceScaleInPolicyNonProd:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: CreateNonProdResources
     Properties:
       PolicyName: !Sub "${ServiceName}-${EnvironmentName}ScaleInPolicy-cf"
       PolicyType: StepScaling
@@ -409,12 +404,10 @@ Resources:
         StepAdjustments:
           - ScalingAdjustment: -1
             MetricIntervalUpperBound: 0
-    DependsOn: ServiceScalingTargetNonProd
 
   # Scaling policies for NON-PROD
   ServiceScaleOutAlarmNonProd:
     Type: AWS::CloudWatch::Alarm
-    Condition: CreateNonProdResources
     Properties:
       EvaluationPeriods: !Ref ScalingEvaluationPeriods
       Statistic: Average
@@ -434,12 +427,10 @@ Resources:
       MetricName: CPUUtilization
     DependsOn:
       - Service
-      - ServiceScaleOutPolicyNonProd
 
   # Scaling policies for NON-PROD
   ServiceScaleInAlarmNonProd:
     Type: AWS::CloudWatch::Alarm
-    Condition: CreateNonProdResources
     Properties:
       EvaluationPeriods: !Ref ScalingEvaluationPeriods
       Statistic: Average
@@ -459,13 +450,12 @@ Resources:
       MetricName: CPUUtilization
     DependsOn:
       - Service
-      - ServiceScaleInPolicyNonProd
+{%- endif %}
 
 {%- if cookiecutter.deploy_prod == "True" -%}
   # Scaling policies for PRODUCTION
   ServiceScalingTargetProd:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
-    Condition: CreateProdResources
     Properties:
       MinCapacity: !Ref MininumContainerCount
       MaxCapacity: !Ref MaximumContainerCount
@@ -493,7 +483,6 @@ Resources:
   # Scaling policies for PRODUCTION
   ServiceScaleOutPolicyProd:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: CreateProdResources
     Properties:
       PolicyName: !Sub "${ServiceName}-${EnvironmentName}ScaleOutPolicy-cf"
       PolicyType: StepScaling
@@ -510,7 +499,6 @@ Resources:
   # Scaling policies for PRODUCTION
   ServiceScaleInPolicyProd:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: CreateProdResources
     Properties:
       PolicyName: !Sub "${ServiceName}-${EnvironmentName}ScaleInPolicy-cf"
       PolicyType: StepScaling
@@ -527,7 +515,6 @@ Resources:
   # Scaling policies for PRODUCTION
   ServiceScaleOutAlarmProd:
     Type: AWS::CloudWatch::Alarm
-    Condition: CreateProdResources
     Properties:
       EvaluationPeriods: !Ref ScalingEvaluationPeriods
       Statistic: Average
@@ -552,7 +539,6 @@ Resources:
   # Scaling policies for PRODUCTION
   ServiceScaleInAlarmProd:
     Type: AWS::CloudWatch::Alarm
-    Condition: CreateProdResources
     Properties:
       EvaluationPeriods: !Ref ScalingEvaluationPeriods
       Statistic: Average
@@ -643,83 +629,85 @@ Resources:
           HostedZoneId: !Ref AlbHostedZoneIdParam
           DNSName:  !Ref AlbDnsNameParam
 
-  # Monitoring alerts
-  # - Response time of backends. When over a period of 15 min, the 90th percentile of
+  # Monitoring alert
+  # Response time of backend: when over a period of 15 minutes, the 90th percentile of
   # backend response time exceeds the configured threshold an alarm alert will be triggered.
-  # AlarmBackendResponseTime:
-  #   Type: AWS::CloudWatch::Alarm
-  #   Condition: ShouldConfigureAlarms
-  #   Properties:
-  #     AlarmDescription: !Sub "Alarm for backend response time of ${ServiceName}."
-  #     AlarmName: !Sub "${ServiceName}-${EnvironmentName}-backend-response-time"
-  #     AlarmActions:
-  #     - !Ref AlertSnsTopic
-  #     MetricName: TargetResponseTime
-  #     Namespace: AWS/ApplicationELB
-  #     ExtendedStatistic: "p90"
-  #     Period: "300"
-  #     EvaluationPeriods: "3"
-  #     Threshold: !Ref BackendResponseTimeThresholdSec
-  #     ComparisonOperator: GreaterThanThreshold
-  #     TreatMissingData: notBreaching
-  #     Dimensions:
-  #     - Name: LoadBalancer
-  #       Value:
-  #         Fn::ImportValue:
-  #           !Sub "${SharedResourcesStackName}:${LoadbalancerType}ALB:FullName"
-  #     - Name: TargetGroup
-  #       Value: !GetAtt ServiceTargetGroup.TargetGroupFullName
+  AlarmBackendResponseTime:
+    Type: AWS::CloudWatch::Alarm
+    Condition: ShouldConfigureAlarms
+    Properties:
+      AlarmDescription: !Sub "Alarm for backend response time of ${ServiceName}."
+      AlarmName: !Sub "${ServiceName}-${EnvironmentName}-backend-response-time"
+      AlarmActions:
+      - !Ref AlertSnsTopic
+      MetricName: TargetResponseTime
+      Namespace: AWS/ApplicationELB
+      ExtendedStatistic: "p90"
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: !Ref BackendResponseTimeThresholdSec
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+      - Name: LoadBalancer
+        Value:
+          Fn::ImportValue:
+            !Sub "${SharedResourcesStackName}:${LoadbalancerType}ALB:FullName"
+      - Name: TargetGroup
+        Value: !GetAtt ServiceTargetGroup.TargetGroupFullName
 
-  # - HTTP 5xx errors from backends. When over a period of 15 min, there are more than
+  # Monitoring alert
+  # HTTP 5xx errors from backend: when over a period of 15 minutes, there are more than
   # HTTP 5XX errors than the configured threshold an alarm alert will be triggered.
-  # AlarmBackendHttp5xxErrors:
-  #   Type: AWS::CloudWatch::Alarm
-  #   Condition: ShouldConfigureAlarms
-  #   Properties:
-  #     AlarmDescription: !Sub "Alarm for HTTP 5xx errors by backend of ${ServiceName}."
-  #     AlarmName: !Sub "${ServiceName}-${EnvironmentName}-backend-http-5xx"
-  #     AlarmActions:
-  #     - !Ref AlertSnsTopic
-  #     MetricName: HTTPCode_Target_5XX_Count
-  #     Namespace: AWS/ApplicationELB
-  #     Statistic: "Sum"
-  #     Period: "900"
-  #     EvaluationPeriods: "1"
-  #     Threshold: !Ref BackendHttp5xxErrorsThresholdCount
-  #     ComparisonOperator: GreaterThanThreshold
-  #     TreatMissingData: notBreaching
-  #     Dimensions:
-  #     - Name: LoadBalancer
-  #       Value:
-  #         Fn::ImportValue:
-  #           !Sub "${SharedResourcesStackName}:${LoadbalancerType}ALB:FullName"
-  #     - Name: TargetGroup
-  #       Value: !GetAtt ServiceTargetGroup.TargetGroupFullName
+  AlarmBackendHttp5xxErrors:
+    Type: AWS::CloudWatch::Alarm
+    Condition: ShouldConfigureAlarms
+    Properties:
+      AlarmDescription: !Sub "Alarm for HTTP 5xx errors by backend of ${ServiceName}."
+      AlarmName: !Sub "${ServiceName}-${EnvironmentName}-backend-http-5xx"
+      AlarmActions:
+      - !Ref AlertSnsTopic
+      MetricName: HTTPCode_Target_5XX_Count
+      Namespace: AWS/ApplicationELB
+      Statistic: "Sum"
+      Period: "900"
+      EvaluationPeriods: "1"
+      Threshold: !Ref BackendHttp5xxErrorsThresholdCount
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+      - Name: LoadBalancer
+        Value:
+          Fn::ImportValue:
+            !Sub "${SharedResourcesStackName}:${LoadbalancerType}ALB:FullName"
+      - Name: TargetGroup
+        Value: !GetAtt ServiceTargetGroup.TargetGroupFullName
 
-  # - Unhealthy backends. When over a period of 15 min, there is an unhealth backend 
+  # Monitoring alert
+  # Unhealthy backend: when over a period of 15 minutes, there is an unhealth backend
   # instance for more than half of the time an alarm alert will be triggered.
-  # AlarmBackendUnhealthyHosts:
-  #   Type: AWS::CloudWatch::Alarm
-  #   Condition: ShouldConfigureAlarms
-  #   Properties:
-  #     AlarmDescription: !Sub "Alarm for unhealthy backends of ${ServiceName}."
-  #     AlarmName: !Sub "${ServiceName}-${EnvironmentName}-backend-unhealthy"
-  #     AlarmActions:
-  #     - !Ref AlertSnsTopic
-  #     MetricName: UnHealthyHostCount
-  #     Namespace: AWS/ApplicationELB
-  #     ExtendedStatistic: "p50"
-  #     Period: "900"
-  #     EvaluationPeriods: "1"
-  #     Threshold: "1"
-  #     ComparisonOperator: GreaterThanOrEqualToThreshold
-  #     Dimensions:
-  #     - Name: LoadBalancer
-  #       Value:
-  #         Fn::ImportValue:
-  #           !Sub "${SharedResourcesStackName}:${LoadbalancerType}ALB:FullName"
-  #     - Name: TargetGroup
-  #       Value: !GetAtt ServiceTargetGroup.TargetGroupFullName
+  AlarmBackendUnhealthyHosts:
+    Type: AWS::CloudWatch::Alarm
+    Condition: ShouldConfigureAlarms
+    Properties:
+      AlarmDescription: !Sub "Alarm for unhealthy backends of ${ServiceName}."
+      AlarmName: !Sub "${ServiceName}-${EnvironmentName}-backend-unhealthy"
+      AlarmActions:
+      - !Ref AlertSnsTopic
+      MetricName: UnHealthyHostCount
+      Namespace: AWS/ApplicationELB
+      ExtendedStatistic: "p50"
+      Period: "900"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+      - Name: LoadBalancer
+        Value:
+          Fn::ImportValue:
+            !Sub "${SharedResourcesStackName}:${LoadbalancerType}ALB:FullName"
+      - Name: TargetGroup
+        Value: !GetAtt ServiceTargetGroup.TargetGroupFullName
 
 
 # -- Cloudwatch resources
