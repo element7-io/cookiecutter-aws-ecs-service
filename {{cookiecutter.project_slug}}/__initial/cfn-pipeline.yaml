@@ -159,62 +159,6 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
 
-{% if cookiecutter.deploy_test == "True" %}
-  # Defintiion of the test CodePipeline.
-  TestPipeline:
-    Type: AWS::CodePipeline::Pipeline
-    Properties:
-      ArtifactStore:
-          Location: !Ref ArtifactBucketName
-          Type: S3
-      Name: !Sub ${ProjectName}-test-pipeline-cfn
-      RoleArn: !GetAtt CodePipelineServicenRole.Arn
-      Stages:
-        - Name: Source
-          Actions:
-            - Name: TestSource
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Provider: S3
-                Version: "1"
-              Configuration:
-                S3Bucket: !Ref ArtifactBucketName
-                S3ObjectKey: !Sub ${ProjectName}/${ProjectName}-test.zip
-              OutputArtifacts:
-                - Name: SourceTestZip
-              RunOrder: 1
-        - Name: Test
-          Actions:
-            - Name: DeployTest
-              ActionTypeId:
-                Category: Deploy
-                Owner: AWS
-                Provider: CloudFormation
-                Version: "1"
-              Configuration:
-                ActionMode: CREATE_UPDATE
-                Capabilities: CAPABILITY_NAMED_IAM
-                RoleArn: !GetAtt CloudFormationExecutionRole.Arn
-                StackName: !Sub ${ProjectName}-test-stack-cfn
-                TemplatePath: SourceTestZip::cfn-template.yaml
-                TemplateConfiguration: SourceTestZip::config/test-stack-config.json
-              InputArtifacts:
-                - Name: SourceTestZip
-              RunOrder: 1
-              # Until native tagging is suported by CFN
-            - Name: ApplyTags
-              ActionTypeId:
-                Category: Invoke
-                Owner: AWS
-                Provider: Lambda
-                Version: "1"
-              Configuration:
-                FunctionName: !Ref TaggingLambda
-                UserParameters: !Sub '{"clustername": "{{ cookiecutter.non_prod_cluster_name }}", "stackname": "${ProjectName}-test-stack-cfn", "accountid": "${AWS::AccountId}", "region": "${AWS::Region}", "servicename": "{{ cookiecutter.project_slug }}-test-cf"}'
-              RunOrder: 2
-{% endif %}
-
 {%- if cookiecutter.deploy_acc == "True" or cookiecutter.deploy_prod == "True" %}
   # Defintiion of the prouction/acceptance CodePipeline.
   DeliveryPipeline:
@@ -259,17 +203,6 @@ Resources:
               InputArtifacts:
                 - Name: SourceDeliveryZip
               RunOrder: 1
-              # Until native tagging is suported by CFN
-            - Name: ApplyTags
-              ActionTypeId:
-                Category: Invoke
-                Owner: AWS
-                Provider: Lambda
-                Version: "1"
-              Configuration:
-                FunctionName: !Ref TaggingLambda
-                UserParameters: !Sub '{"clustername": "{{ cookiecutter.non_prod_cluster_name }}", "stackname": "${ProjectName}-acc-stack-cfn", "accountid": "${AWS::AccountId}", "region": "${AWS::Region}", "servicename": "{{ cookiecutter.project_slug }}-acc-cf"}'
-              RunOrder: 2
         {%- endif %}
         {%- if cookiecutter.enable_pipeline_approvals == "True" %}
             - Name: UATApproval
@@ -304,22 +237,11 @@ Resources:
               InputArtifacts:
                 - Name: SourceDeliveryZip
               RunOrder: 1
-              # Until native tagging is suported by CFN
-            - Name: ApplyTags
-              ActionTypeId:
-                Category: Invoke
-                Owner: AWS
-                Provider: Lambda
-                Version: "1"
-              Configuration:
-                FunctionName: !Ref TaggingLambda
-                UserParameters: !Sub '{"clustername": "{{ cookiecutter.prod_cluster_name }}", "stackname": "${ProjectName}-prod-stack-cfn", "accountid": "${AWS::AccountId}", "region": "${AWS::Region}", "servicename": "{{ cookiecutter.project_slug }}-prod-cf"}'
-              RunOrder: 2
         {%- endif %}
 {%- endif %}
 
 Outputs:
   EcrRepository:
-    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrImageRepository}"
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrImageRepository}
     Export:
       Name: !Join [ ':', [ !Ref 'AWS::StackName', 'EcrRepository' ] ]

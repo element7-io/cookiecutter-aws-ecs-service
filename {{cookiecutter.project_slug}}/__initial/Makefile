@@ -23,11 +23,11 @@ build:
 .PHONY: build
 
 run:
-	java -jar {{ cookiecutter.artifact_name }}-0.0.1-SNAPSHOT.jar
+	java -jar target/{{ cookiecutter.artifact_name }}-0.0.1-SNAPSHOT.jar
 
 build-docker:
-	# Build multilayer Docker image
-	docker build -t ${PROJECT_NAME}:latest .
+	# Spring Boot with Docker: https://spring.io/guides/gs/spring-boot-docker/
+	./mvnw compile jib:build
 .PHONY: build-docker
 
 docker-push:
@@ -35,9 +35,9 @@ docker-push:
 	docker push ${ECR_REPO_URL}:${LABEL}
 .PHONY: docker-push
 
-run: build-gradle build-docker
-	docker run -e SPRING_PROFILES_ACTIVE='test' -p {{ cookiecutter.container_port }}:{{ cookiecutter.container_port }} ${PROJECT_NAME}:latest
-.PHONY: run
+# run: build-gradle build-docker
+# 	docker run -e SPRING_PROFILES_ACTIVE='test' -p {{ cookiecutter.container_port }}:{{ cookiecutter.container_port }} ${PROJECT_NAME}:latest
+# .PHONY: run
 
 debug: build-gradle build-docker
 	docker run -ti --rm -e SPRING_PROFILES_ACTIVE='test' ${PROJECT_NAME}:latest /bin/ash
