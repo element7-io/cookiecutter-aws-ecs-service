@@ -49,7 +49,9 @@
                 <version>1.8.0</version>
                 <configuration>
                     <from>
+                        <!-- current digest: openjdk:13-alpine3.10 -->
                         <image>openjdk@sha256:26ca1df9692d34f30ed38d272fb7b1776b832464b099d6d29f416787be4af170</image>
+                        <!-- for other openjdk images see: https://hub.docker.com/_/openjdk?tab=tags -->
                     </from>
                     <to>
                         <image>583896339505.dkr.ecr.eu-west-1.amazonaws.com/test-jib</image>
