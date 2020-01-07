@@ -293,6 +293,9 @@ Resources:
 {%- endif %}
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: !Ref ServiceName
+      Tags:
+        - Key: Name
+          Value: !Sub app-${ServiceName}-${EnvironmentName}-cf
 {% if cookiecutter.service_log_group == "" %}
   ServiceLogGroup:
     Type: AWS::Logs::LogGroup
@@ -324,6 +327,9 @@ Resources:
             - !Ref ServiceSecurityGroup
           Subnets: !Split [",", !Ref PrivateSubnetsParam]
       TaskDefinition: !Ref TaskDefinition
+      Tags:
+        - Key: Name
+          Value: !Sub app-${ServiceName}-${EnvironmentName}-cf
       LoadBalancers:
         - ContainerName: !Ref ServiceName
           ContainerPort: !Ref ContainerPort
