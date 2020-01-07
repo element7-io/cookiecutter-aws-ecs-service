@@ -10,13 +10,20 @@ ECR_REPO_URL=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${ECR
 ARTIFACT_BUCKET={{ cookiecutter.artifact_s3_bucket }}
 CF_STACK_NAME=${PROJECT_NAME}-pipeline-stack
 
-build-gradle:
+build:
+	{%- if cookiecutter.build_automation_tool == "Maven" %}
+	./mvnw package
+	{%- else %}
 	# Gradle build
 	./gradlew --init-script init.gradle --stacktrace -PbuildNumber=commit-${BITBUCKET_COMMIT} build
 	# Unzip fatjar
 	mkdir -p build/raw
 	(cd build/raw; jar -xf ../libs/*.jar)
-.PHONY: build-gradle
+	{%- endif %}
+.PHONY: build
+
+run:
+	java -jar {{ cookiecutter.artifact_name }}-0.0.1-SNAPSHOT.jar
 
 build-docker:
 	# Build multilayer Docker image

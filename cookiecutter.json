@@ -45,6 +45,7 @@
     "container_port": "8080",
     "container_cpu": "512",
     "container_memory": "1024",
+    "artifact_name": "The Artifact's name",
     "service_healthcheck_path": "/actuator/info",
     "service_log_group": "",
     "main_class": "Main class to start the application (Gradle only)",

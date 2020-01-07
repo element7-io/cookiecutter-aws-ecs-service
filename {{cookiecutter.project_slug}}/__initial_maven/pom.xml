@@ -9,9 +9,9 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.example</groupId>
-	<artifactId>helloworld</artifactId>
+  <artifactId>{{ cookiecutter.artifact_name }}</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>helloworld</name>
+  <name>{{ cookiecutter.artifact_name }}</name>
 	<description>Hello World for Spring Boot</description>
 
 	<properties>
