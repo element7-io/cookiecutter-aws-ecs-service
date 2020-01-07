@@ -46,6 +46,7 @@ pip install cookiecutter
 - **An ECS Cluster:** your could use [cookiecutter-aws-ecs-cluster](https://github.com/element7-io/cookiecutter-aws-ecs-cluster)
 - **An ALB:** also part of [cookiecutter-aws-ecs-cluster](https://github.com/element7-io/cookiecutter-aws-ecs-cluster)
 - **An Artefacts S3 bucket:** this bucket needs to be versioned.
+- **An ECR Repository:
 
 
 ### Configuration

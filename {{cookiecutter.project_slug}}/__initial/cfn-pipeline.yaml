@@ -15,6 +15,7 @@ Resources:
   EcrImageRepository:
     Type: AWS::ECR::Repository
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       RepositoryName: {{ cookiecutter.project_slug }}-repo
       LifecyclePolicy:
@@ -86,7 +87,7 @@ Resources:
             Version: 2012-10-17
             Statement:
               - Resource:
-                  - !Sub "arn:aws:s3:::${ArtifactBucketName}"
+                  - !Sub arn:aws:s3:::${ArtifactBucketName}
                   - !Sub "arn:aws:s3:::${ArtifactBucketName}/*"
                   - "arn:aws:s3:::codepipeline*"
                   - "arn:aws:s3:::codepipeline*/*"
@@ -166,7 +167,7 @@ Resources:
       ArtifactStore:
           Location: !Ref ArtifactBucketName
           Type: S3
-      Name: !Sub "${ProjectName}-test-pipeline-cfn"
+      Name: !Sub ${ProjectName}-test-pipeline-cfn
       RoleArn: !GetAtt CodePipelineServicenRole.Arn
       Stages:
         - Name: Source
@@ -176,10 +177,10 @@ Resources:
                 Category: Source
                 Owner: AWS
                 Provider: S3
-                Version: 1
+                Version: "1"
               Configuration:
                 S3Bucket: !Ref ArtifactBucketName
-                S3ObjectKey: !Sub "${ProjectName}/${ProjectName}-test.zip"
+                S3ObjectKey: !Sub ${ProjectName}/${ProjectName}-test.zip
               OutputArtifacts:
                 - Name: SourceTestZip
               RunOrder: 1
@@ -190,12 +191,12 @@ Resources:
                 Category: Deploy
                 Owner: AWS
                 Provider: CloudFormation
-                Version: 1
+                Version: "1"
               Configuration:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_NAMED_IAM
                 RoleArn: !GetAtt CloudFormationExecutionRole.Arn
-                StackName: !Sub "${ProjectName}-test-stack-cfn"
+                StackName: !Sub ${ProjectName}-test-stack-cfn
                 TemplatePath: SourceTestZip::cfn-template.yaml
                 TemplateConfiguration: SourceTestZip::config/test-stack-config.json
               InputArtifacts:
@@ -207,7 +208,7 @@ Resources:
                 Category: Invoke
                 Owner: AWS
                 Provider: Lambda
-                Version: 1
+                Version: "1"
               Configuration:
                 FunctionName: !Ref TaggingLambda
                 UserParameters: !Sub '{"clustername": "{{ cookiecutter.non_prod_cluster_name }}", "stackname": "${ProjectName}-test-stack-cfn", "accountid": "${AWS::AccountId}", "region": "${AWS::Region}", "servicename": "{{ cookiecutter.project_slug }}-test-cf"}'
@@ -222,7 +223,7 @@ Resources:
       ArtifactStore:
           Location: !Ref ArtifactBucketName
           Type: S3
-      Name: !Sub "${ProjectName}-delivery-pipeline-cfn"
+      Name: !Sub ${ProjectName}-delivery-pipeline-cfn
       RoleArn: !GetAtt CodePipelineServicenRole.Arn
       Stages:
         - Name: Source
@@ -232,10 +233,10 @@ Resources:
                 Category: Source
                 Owner: AWS
                 Provider: S3
-                Version: 1
+                Version: "1"
               Configuration:
                 S3Bucket: !Ref ArtifactBucketName
-                S3ObjectKey: !Sub "${ProjectName}/${ProjectName}.zip"
+                S3ObjectKey: !Sub ${ProjectName}/${ProjectName}.zip
               OutputArtifacts:
                 - Name: SourceDeliveryZip
               RunOrder: 1
@@ -247,12 +248,12 @@ Resources:
                 Category: Deploy
                 Owner: AWS
                 Provider: CloudFormation
-                Version: 1
+                Version: "1"
               Configuration:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_NAMED_IAM
                 RoleArn: !GetAtt CloudFormationExecutionRole.Arn
-                StackName: !Sub "${ProjectName}-acc-stack-cfn"
+                StackName: !Sub ${ProjectName}-acc-stack-cfn
                 TemplatePath: SourceDeliveryZip::cfn-template.yaml
                 TemplateConfiguration: SourceDeliveryZip::config/acc-stack-config.json
               InputArtifacts:
@@ -264,7 +265,7 @@ Resources:
                 Category: Invoke
                 Owner: AWS
                 Provider: Lambda
-                Version: 1
+                Version: "1"
               Configuration:
                 FunctionName: !Ref TaggingLambda
                 UserParameters: !Sub '{"clustername": "{{ cookiecutter.non_prod_cluster_name }}", "stackname": "${ProjectName}-acc-stack-cfn", "accountid": "${AWS::AccountId}", "region": "${AWS::Region}", "servicename": "{{ cookiecutter.project_slug }}-acc-cf"}'
@@ -275,7 +276,7 @@ Resources:
               ActionTypeId:
                 Category: Approval
                 Owner: AWS
-                Version: 1
+                Version: "1"
                 Provider: Manual
               Configuration:
                 {%- if cookiecutter.approvals_notification_topic != "" %}
@@ -292,12 +293,12 @@ Resources:
                 Category: Deploy
                 Owner: AWS
                 Provider: CloudFormation
-                Version: 1
+                Version: "1"
               Configuration:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_NAMED_IAM
                 RoleArn: !GetAtt CloudFormationExecutionRole.Arn
-                StackName: !Sub "${ProjectName}-prod-stack-cfn"
+                StackName: !Sub ${ProjectName}-prod-stack-cfn
                 TemplatePath: SourceDeliveryZip::cfn-template.yaml
                 TemplateConfiguration: SourceDeliveryZip::config/prod-stack-config.json
               InputArtifacts:
@@ -309,81 +310,13 @@ Resources:
                 Category: Invoke
                 Owner: AWS
                 Provider: Lambda
-                Version: 1
+                Version: "1"
               Configuration:
                 FunctionName: !Ref TaggingLambda
                 UserParameters: !Sub '{"clustername": "{{ cookiecutter.prod_cluster_name }}", "stackname": "${ProjectName}-prod-stack-cfn", "accountid": "${AWS::AccountId}", "region": "${AWS::Region}", "servicename": "{{ cookiecutter.project_slug }}-prod-cf"}'
               RunOrder: 2
         {%- endif %}
 {%- endif %}
-
-# Tagging Lambda Resources
-  TaggingLambdaRole:
-    Type: "AWS::IAM::Role"
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Action:
-              - sts:AssumeRole
-            Effect: Allow
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-      ManagedPolicyArns:
-        - !Ref TaggingLambdaPolicy
-        -  arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-
-  TaggingLambdaLogGroup:
-    Type: "AWS::Logs::LogGroup"
-    Properties:
-      LogGroupName: !Sub "${ProjectName}-ecs-service-tagger"
-
-  TaggingLambdaPolicy:
-    Type: "AWS::IAM::ManagedPolicy"
-    Properties:
-      Description: Policy used by ECS Tagging Lambda
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Resource:
-              - "*"
-            Effect: Allow
-            Action:
-              - codepipeline:PutJobSuccessResult
-              - codepipeline:PutJobFailureResult
-          - Resource:
-              - "*"
-            Effect: Allow
-            Action:
-              - ecs:DescribeServices
-              - ecs:UpdateService
-              - ecs:TagResource
-              - ecs:UntagResource
-          - Resource:
-              - "*"
-            Effect: Allow
-            Action:
-              - cloudformation:DescribeStacks
-              - cloudfromation:ListExports
-
-  TaggingLambda:
-    Type: "AWS::Lambda::Function"
-    Properties:
-      Code: helpers/lambda/ecs-tagging
-      Description: Tags ECS services in Codepipeline
-      FunctionName: !Sub "${ProjectName}-ecs-service-tagger"
-      Handler: function.handler
-      Layers:
-        - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:dpp-boto3:1"
-      MemorySize: 512
-      Role: !GetAtt TaggingLambdaRole.Arn
-      Runtime: python3.6
-      Timeout: 10
-      Tags:
-        - Key: "CNCA"
-          Value: "codepipeline"
-
 
 Outputs:
   EcrRepository:

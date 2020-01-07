@@ -54,7 +54,7 @@
                         <!-- for other openjdk images see: https://hub.docker.com/_/openjdk?tab=tags -->
                     </from>
                     <to>
-                        <image>583896339505.dkr.ecr.eu-west-1.amazonaws.com/test-jib</image>
+                      <image>{{ cookiecutter.aws_account_id }}.dkr.ecr.{{ cookiecutter.aws_default_region }}.amazonaws.com/{{ cookiecutter.project_slug }}-repo</image>
                     </to>
                 </configuration>
                 </plugin>
