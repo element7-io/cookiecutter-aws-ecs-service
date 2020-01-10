@@ -1,0 +1,28 @@
+version: 0.2
+phases:
+  pre_build:
+    commands:
+      - $(aws ecr get-login --no-include-email)
+      - TAG="$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | head -c 8)"
+      - IMAGE_URI="${REPOSITORY_URI}:${TAG}"
+  build:
+    commands:
+      - docker build --tag "$IMAGE_URI" .
+      - docker tag "$IMAGE_URI" "$REPOSITORY_URI:latest"
+  post_build:
+    commands:
+      - docker push "$IMAGE_URI"
+      - docker push "$REPOSITORY_URI:latest"
+      - |
+        for f in config/*.json
+        do
+            # Add the code checksum tag to the parameters of the CloudFormation config file. The current git commit id is added as tag on the
+            # CloudFormation stack in order to easily determine which version of
+            # the application is running live.
+            cat $f | \
+            jq --arg image_tag "$TAG" '.Parameters |= . + {"ImageTag": $image_tag}' | \
+            jq --arg commit_id "$CODEBUILD_RESOLVED_SOURCE_VERSION" '.Tags |= . + {"GitCommitId": $commit_id}' > $f
+        done
+      - printf '[{"name":"simple-app","imageUri":"%s"}]' "$IMAGE_URI" > images.json
+artifacts:
+  files: images.json
