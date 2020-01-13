@@ -29,8 +29,10 @@ Parameters:
     Type: String
     Description: The ALB's Listener arn
   AlbRulePriority:
-    Type: Integer
+    Type: Number
     Description: The ALB's Listener rule priority
+    MinValue: 1
+    MaxValue: 50000
   ServiceName:
     Type: String
     Default: nginx
@@ -639,8 +641,10 @@ Resources:
     Properties:
       AlarmDescription: !Sub Alarm for backend response time of ${ServiceName}.
       AlarmName: !Sub ${ServiceName}-${EnvironmentName}-backend-response-time
+      {%- if cookiecutter.alerting_sns_topic != "" %}
       AlarmActions:
-      - !Ref AlertSnsTopic
+        - !Ref AlertSnsTopic
+      {%- endif %}
       MetricName: TargetResponseTime
       Namespace: AWS/ApplicationELB
       ExtendedStatistic: "p90"
@@ -663,8 +667,10 @@ Resources:
     Properties:
       AlarmDescription: !Sub Alarm for HTTP 5xx errors by backend of ${ServiceName}.
       AlarmName: !Sub ${ServiceName}-${EnvironmentName}-backend-http-5xx
+      {%- if cookiecutter.alerting_sns_topic != "" %}
       AlarmActions:
-      - !Ref AlertSnsTopic
+        - !Ref AlertSnsTopic
+      {%- endif %}
       MetricName: HTTPCode_Target_5XX_Count
       Namespace: AWS/ApplicationELB
       Statistic: Sum
@@ -687,8 +693,10 @@ Resources:
     Properties:
       AlarmDescription: !Sub Alarm for unhealthy backends of ${ServiceName}.
       AlarmName: !Sub ${ServiceName}-${EnvironmentName}-backend-unhealthy
+      {%- if cookiecutter.alerting_sns_topic != "" %}
       AlarmActions:
-      - !Ref AlertSnsTopic
+        - !Ref AlertSnsTopic
+      {%- endif %}
       MetricName: UnHealthyHostCount
       Namespace: AWS/ApplicationELB
       ExtendedStatistic: "p50"

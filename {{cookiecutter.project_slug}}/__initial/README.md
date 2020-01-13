@@ -13,6 +13,16 @@
 
 The ECR repository and CodePipeline resources are automatically created when the `cfn-pipeline.yaml` are deployed onto AWS (`./make.sh deploy-pipeline`).
 
+## Installation
+### CodePipeline
+To setup a pipeline for installing and maintaining the ECS Service deploy the CloudFormation stack `cfn-pipeline.yaml`:
+
+1. Login to the AWS CLI
+1. Create a new GitHub personal access token. See [here](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/) for how to do this - CodePipeline needs just the `repo` scope permissions. The user associated with the personal access token above **MUST** have administrative rights for the Github repository.
+1. run: `make create-pipeline GITHUB_TOKEN=your_github_personal_access_token`
+
+More information about using GitHub as a source for AWS CodePipeline can be found here:  [Create a Webhook for a GitHub Source (AWS CloudFormation Template)](https://docs.aws.amazon.com/codepipeline/latest/userguide/pipelines-webhooks-create-cfn.html)
+
 ## Usage
 
 This repository contains the {{ cookiecutter.project_name }} service. 

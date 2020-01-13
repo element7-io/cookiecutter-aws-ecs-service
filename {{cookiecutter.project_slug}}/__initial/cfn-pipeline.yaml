@@ -2,14 +2,25 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Pipeline for {{ cookiecutter.project_name }}.
 
 Parameters:
-  ProjectName:
-    Type: String
-    Description: Name of the project.
-    Default: {{ cookiecutter.project_slug }}
   ArtifactBucketName:
     Type: String
     Description: Name of the S3 bucket containing the deployable artifacts.
     Default: {{ cookiecutter.artifact_s3_bucket }}
+  GitHubOAuthToken:
+    Type: String
+    NoEcho: true
+    MinLength: 40
+    MaxLength: 40
+    AllowedPattern: '[a-z0-9]*'
+  GitHubOwner:
+    Type: String
+    Default: {{ cookiecutter.github_owner }}
+  GitHubRepo:
+    Type: String
+    Default: {{ cookiecutter.github_repo }}
+  GitHubBranch:
+    Type: String
+    Default: {{ cookiecutter.github_branch }}
 
 Resources:
   EcrImageRepository:
@@ -111,8 +122,8 @@ Resources:
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub ${ProjectName}-codebuild-cfn
-      Description: !Sub Build project for ${ProjectName}-codebuild-cfn
+      Name: {{ cookiecutter.project_slug }}-codebuild-cfn
+      Description: Build project for {{ cookiecutter.project_slug }}-codebuild-cfn
       Artifacts:
         Type: CODEPIPELINE
       Source:
@@ -120,7 +131,7 @@ Resources:
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:2.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:2.0
         EnvironmentVariables:
           - Name: AWS_DEFAULT_REGION
             Value: !Ref AWS::Region
@@ -219,7 +230,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
 
-{%- if cookiecutter.deploy_acc == "True" or cookiecutter.deploy_prod == "True" %}
+{% if cookiecutter.deploy_acc == "True" or cookiecutter.deploy_prod == "True" %}
   # Defintiion of the prouction/acceptance CodePipeline.
   DeliveryPipeline:
     Type: AWS::CodePipeline::Pipeline
@@ -227,23 +238,26 @@ Resources:
       ArtifactStore:
           Location: !Ref ArtifactBucketName
           Type: S3
-      Name: !Sub ${ProjectName}-delivery-pipeline-cfn
+      Name: {{ cookiecutter.project_slug }}-delivery-pipeline-cfn
       RoleArn: !GetAtt CodePipelineServicenRole.Arn
       Stages:
         - Name: Source
           Actions:
-            - Name: DeliverySource
+            - Name: GitHubSourceAction
               ActionTypeId:
                 Category: Source
-                Owner: AWS
-                Provider: S3
+                Owner: ThirdParty
+                Provider: GitHub
                 Version: "1"
               Configuration:
-                S3Bucket: !Ref ArtifactBucketName
-                S3ObjectKey: !Sub ${ProjectName}/${ProjectName}.zip
+                  Owner: !Ref GitHubOwner
+                  Repo: !Ref GitHubRepo
+                  Branch: !Ref GitHubBranch
+                  PollForSourceChanges: False
+                  OAuthToken: !Ref GitHubOAuthToken
               OutputArtifacts:
-                - Name: SourceDeliveryZip
-              RunOrder: 1
+                - Name: SourceZip
+              # RunOrder: 1
         - Name: Build
           Actions:
             - Name: CodeBuild
@@ -255,9 +269,10 @@ Resources:
               Configuration:
                 ProjectName: !Ref CodeBuildProject
               InputArtifacts:
-                - Name: SourceDeliveryZip
+                - Name: SourceZip
               OutputArtifacts:
                 - Name: BuildArtifactAsZip
+              # RunOrder: 1
         {%- if cookiecutter.deploy_acc == "True" %}
         - Name: Acceptance
           Actions:
@@ -271,15 +286,14 @@ Resources:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_NAMED_IAM
                 RoleArn: !GetAtt CloudFormationExecutionRole.Arn
-                StackName: !Sub ${ProjectName}-acc-stack-cfn
-                TemplatePath: SourceDeliveryZip::cfn-template.yaml
-                TemplateConfiguration: SourceDeliveryZip::config/acc-stack-config.json
+                StackName: {{ cookiecutter.project_slug }}-acc-stack-cfn
+                TemplatePath: SourceZip::cfn-template.yaml
+                TemplateConfiguration: SourceZip::config/acc-stack-config.json
               InputArtifacts:
-                - Name: SourceDeliveryZip
+                - Name: SourceZip
               RunOrder: 1
-        {%- endif %}
-        {%- if cookiecutter.enable_pipeline_approvals == "True" %}
-            - Name: UATApproval
+            {%- if cookiecutter.enable_pipeline_approvals == "True" %}
+            - Name: ApproveDeployToProd
               ActionTypeId:
                 Category: Approval
                 Owner: AWS
@@ -289,10 +303,11 @@ Resources:
                 {%- if cookiecutter.approvals_notification_topic != "" %}
                 NotificationArn: {{ cookiecutter.approvals_notification_topic }}
                 {%- endif %}
-                CustomData: !Ref ProjectName
-              RunOrder: 3
+                CustomData: {{ cookiecutter.project_slug }}
+              RunOrder: 2
+            {%- endif %}
         {%- endif %}
-        {%- if cookiecutter.deploy_prod == "True" %}
+        {%- if cookiecutter.deploy_prod == "true" %}
         - Name: Production
           Actions:
             - Name: DeployProduction
@@ -305,13 +320,27 @@ Resources:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_NAMED_IAM
                 RoleArn: !GetAtt CloudFormationExecutionRole.Arn
-                StackName: !Sub ${ProjectName}-prod-stack-cfn
-                TemplatePath: SourceDeliveryZip::cfn-template.yaml
-                TemplateConfiguration: SourceDeliveryZip::config/prod-stack-config.json
+                StackName: {{ cookiecutter.project_slug }}-prod-stack-cfn
+                TemplatePath: SourceZip::cfn-template.yaml
+                TemplateConfiguration: SourceZip::config/prod-stack-config.json
               InputArtifacts:
-                - Name: SourceDeliveryZip
+                - Name: SourceZip
               RunOrder: 1
         {%- endif %}
+
+  GitHubPipelineWebhook:
+    Type: AWS::CodePipeline::Webhook
+    Properties:
+      Authentication: GITHUB_HMAC
+      AuthenticationConfiguration:
+        SecretToken: !Ref GitHubOAuthToken
+      Filters:
+        - JsonPath: "$.ref"
+          MatchEquals: refs/heads/{Branch}
+      TargetPipeline: !Ref DeliveryPipeline
+      TargetAction: GitHubSourceAction
+      TargetPipelineVersion: !GetAtt DeliveryPipeline.Version
+      RegisterWithThirdParty: True
 {%- endif %}
 
 Outputs:

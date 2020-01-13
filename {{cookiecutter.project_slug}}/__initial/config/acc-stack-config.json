@@ -31,8 +31,10 @@
         "ServiceHealthCheckGracePeriodParam": "300",
         "ServiceHealthCheckMatcherParam": "200",
         "BackendResponseTimeThresholdSec": "0.5",
+        {%- if cookiecutter.enable_api_gateway == "True" %}
         "CertificateArn": "{{ cookiecutter.non_prod_ssl_certificate_arn }}",
         "CustomDomainParam": "{{ cookiecutter.acc_custom_domainname }}",
+        {%- endif %}
         "AlertSnsTopic": "{{ cookiecutter.alerting_sns_topic }}"
     },
     "Tags": {
