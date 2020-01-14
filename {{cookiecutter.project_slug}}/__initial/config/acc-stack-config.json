@@ -13,6 +13,7 @@
         "ServiceName": "{{ cookiecutter.project_slug }}",
         "EnvironmentName": "acc",
         "DnsName": "{{ cookiecutter.acc_service_dnsname }}",
+        "CreateDnsRecord": "{{ cookiecutter.create_dns_records }}",
         "TaskCpu": "{{ cookiecutter.container_cpu|int }}",
         "TaskMemory": "{{ cookiecutter.container_memory|int }}",
         "ContainerPort": "{{ cookiecutter.container_port }}",

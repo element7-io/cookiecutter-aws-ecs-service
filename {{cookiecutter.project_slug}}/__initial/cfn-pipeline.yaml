@@ -131,7 +131,7 @@ Resources:
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:2.0
+        Image: aws/codebuild/standard:3.0
         EnvironmentVariables:
           - Name: AWS_DEFAULT_REGION
             Value: !Ref AWS::Region
@@ -164,10 +164,6 @@ Resources:
               - Resource:
                   - !Sub arn:aws:s3:::${ArtifactBucketName}
                   - !Sub arn:aws:s3:::${ArtifactBucketName}/*
-                  # - arn:aws:s3:::codepipeline*
-                  # - arn:aws:s3:::codepipeline*/*
-                  # - arn:aws:s3:::elasticbeanstalk*
-                  # - arn:aws:s3:::elasticbeanstalk*/*
                 Effect: Allow
                 Action:
                   - s3:PutObject
@@ -179,11 +175,6 @@ Resources:
                 Action:
                   - codebuild:BatchGetBuilds
                   - codebuild:StartBuild
-                  # - codedeploy:CreateDeployment
-                  # - codedeploy:GetApplicationRevision
-                  # - codedeploy:GetDeployment
-                  # - codedeploy:GetDeploymentConfig
-                  # - codedeploy:RegisterApplicationRevision
                   - ecs:DescribeServices
                   - ecs:DescribeTaskDefinition
                   - ecs:DescribeTasks
@@ -257,7 +248,6 @@ Resources:
                   OAuthToken: !Ref GitHubOAuthToken
               OutputArtifacts:
                 - Name: SourceZip
-              # RunOrder: 1
         - Name: Build
           Actions:
             - Name: CodeBuild
@@ -272,7 +262,6 @@ Resources:
                 - Name: SourceZip
               OutputArtifacts:
                 - Name: BuildArtifactAsZip
-              # RunOrder: 1
         {%- if cookiecutter.deploy_acc == "True" %}
         - Name: Acceptance
           Actions:
@@ -287,10 +276,10 @@ Resources:
                 Capabilities: CAPABILITY_NAMED_IAM
                 RoleArn: !GetAtt CloudFormationExecutionRole.Arn
                 StackName: {{ cookiecutter.project_slug }}-acc-stack-cfn
-                TemplatePath: SourceZip::cfn-template.yaml
-                TemplateConfiguration: SourceZip::config/acc-stack-config.json
+                TemplatePath: BuildArtifactAsZip::cfn-template.yaml
+                TemplateConfiguration: BuildArtifactAsZip::dist/config/acc-stack-config.json
               InputArtifacts:
-                - Name: SourceZip
+                - Name: BuildArtifactAsZip
               RunOrder: 1
             {%- if cookiecutter.enable_pipeline_approvals == "True" %}
             - Name: ApproveDeployToProd
@@ -321,11 +310,10 @@ Resources:
                 Capabilities: CAPABILITY_NAMED_IAM
                 RoleArn: !GetAtt CloudFormationExecutionRole.Arn
                 StackName: {{ cookiecutter.project_slug }}-prod-stack-cfn
-                TemplatePath: SourceZip::cfn-template.yaml
-                TemplateConfiguration: SourceZip::config/prod-stack-config.json
+                TemplatePath: BuildArtifactAsZip::cfn-template.yaml
+                TemplateConfiguration: BuildArtifactAsZip::dist/config/prod-stack-config.json
               InputArtifacts:
-                - Name: SourceZip
-              RunOrder: 1
+                - Name: BuildArtifactAsZip
         {%- endif %}
 
   GitHubPipelineWebhook:

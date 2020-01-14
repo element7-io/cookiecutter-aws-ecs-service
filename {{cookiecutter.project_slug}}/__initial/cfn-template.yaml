@@ -116,7 +116,6 @@ Parameters:
     Description: Cron Schedule for scaling out
   ImageTag:
     Type: String
-    Default: "latest"
     Description: Tag of the image that should be deployed
   TaskCpu:
     Type: Number
@@ -161,13 +160,13 @@ Parameters:
     Type: String
     Description: Select if stack should also create Route53 record.
     AllowedValues:
-      - Y
-      - N
-    Default: N
+      - Yes
+      - No
+    Default: No
 
 Conditions:
   HasCustomRole: !Not [ !Equals [!Ref Role, ''] ]
-  ShouldCreateDnsRecord: !Equals [!Ref CreateDnsRecord, 'Y']
+  ShouldCreateDnsRecord: !Equals [!Ref CreateDnsRecord, 'Yes']
 
 Resources:
   # This role is used by the AWS Tasks themselves. In fact it can be assumed by the Amazon ECS

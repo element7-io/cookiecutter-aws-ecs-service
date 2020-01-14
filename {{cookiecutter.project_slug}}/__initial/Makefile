@@ -61,8 +61,9 @@ run:
 	java -jar target/{{ cookiecutter.artifact_name }}-0.0.1-SNAPSHOT.jar
 
 build-docker:
+	@:$(call check_defined, TAG)
 	# Spring Boot with Docker: https://spring.io/guides/gs/spring-boot-docker/
-	./mvnw compile jib:build
+	./mvnw compile jib:build -Djib.to.tags=${TAG}
 .PHONY: build-docker
 
 docker-push:

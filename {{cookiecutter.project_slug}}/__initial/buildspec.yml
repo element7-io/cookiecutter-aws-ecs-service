@@ -2,20 +2,21 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      docker: 18
+      java: openjdk11
   pre_build:
     commands:
       - $(aws ecr get-login --no-include-email)
       - TAG="$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | head -c 8)"
       - IMAGE_URI="${REPOSITORY_URI}:${TAG}"
+      - mkdir -p dist/config/
   build:
     commands:
-      - docker build --tag "$IMAGE_URI" .
-      - docker tag "$IMAGE_URI" "$REPOSITORY_URI:latest"
+      # MAVEN_CONFIG is set to /root/.m2 is CodeBuild Dockerfile which breaks the mvn usage
+      # see https://github.com/apache/maven/blob/master/apache-maven/src/bin/mvn#L188
+      - export MAVEN_CONFIG=''
+      - make build-docker TAG=$TAG
   post_build:
     commands:
-      - docker push "$IMAGE_URI"
-      - docker push "$REPOSITORY_URI:latest"
       - |
         for f in config/*.json
         do
@@ -24,8 +25,16 @@ phases:
             # the application is running live.
             cat $f | \
             jq --arg image_tag "$TAG" '.Parameters |= . + {"ImageTag": $image_tag}' | \
-            jq --arg commit_id "$CODEBUILD_RESOLVED_SOURCE_VERSION" '.Tags |= . + {"GitCommitId": $commit_id}' > $f
+            jq --arg commit_id "$CODEBUILD_RESOLVED_SOURCE_VERSION" '.Tags |= . + {"GitCommitId": $commit_id}' > dist/$f
         done
       - printf '[{"name":"simple-app","imageUri":"%s"}]' "$IMAGE_URI" > images.json
 artifacts:
-  files: images.json
+  files:
+    - 'images.json'
+    - 'dist/**/*.json'
+    - 'cfn-template.yaml'
+cache:
+  paths:
+    - '/root/.m2/**/*'
+    - '/root/.gradle/**/*'
+    - '/root/.docker-cache/**/*'

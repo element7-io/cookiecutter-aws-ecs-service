@@ -5,6 +5,11 @@
 * aws cli (check: `aws --version`)
 * docker (+ CLI) (check: docker --version) : https://docs.docker.com/install/#supported-platforms
 
+Although it's not a requirement we could highly recommand to enable [Amazon ECS CloudWatch
+Container
+Insights](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cloudwatch-container-insights.html) on your
+AWS account.
+
 ## Resources
 
 * ECR repository: {{ cookiecutter.aws_account_id }}.dkr.ecr.{{ cookiecutter.aws_default_region }}.amazonaws.com/{{ cookiecutter.project_slug }}-repo
