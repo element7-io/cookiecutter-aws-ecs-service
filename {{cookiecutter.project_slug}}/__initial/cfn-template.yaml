@@ -160,9 +160,9 @@ Parameters:
     Type: String
     Description: Select if stack should also create Route53 record.
     AllowedValues:
-      - Yes
-      - No
-    Default: No
+      - "Yes"
+      - "No"
+    Default: "No"
 
 Conditions:
   HasCustomRole: !Not [ !Equals [!Ref Role, ''] ]

@@ -69,7 +69,7 @@ run:
 build-docker:
 	@:$(call check_defined, TAG)
 	# Spring Boot with Docker: https://spring.io/guides/gs/spring-boot-docker/
-	./mvnw compile jib:build -Djib.to.tags=${TAG}
+	./mvnw compile jib:build -Djib.to.image={{ cookiecutter.aws_account_id }}.dkr.ecr.{{ cookiecutter.aws_default_region }}.amazonaws.com/{{ cookiecutter.project_slug }}-repo:${TAG}
 .PHONY: build-docker
 
 docker-push:
