@@ -29,6 +29,12 @@ create-pipeline:
 	@echo Waiting for stack to complete...
 	@aws cloudformation wait stack-create-complete --stack-name ${CF_STACK_NAME}
 	@echo Create complete!
+	@aws ecr put-image-scanning-configuration \
+		--repository-name {{ cookiecutter.project_slug }}-repo \
+		--image-scanning-configuration scanOnPush=true
+	@aws ecr put-image-tag-mutability \
+		--repository-name {{ cookiecutter.project_slug }}-repo \
+		--image-tag-mutability IMMUTABLE
 .PHONY: create-pipeline
 
 update-pipeline:
