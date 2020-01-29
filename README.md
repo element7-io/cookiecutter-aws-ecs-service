@@ -2,9 +2,22 @@
 
 Cookiecutter is a tool that creates projects from project templates. **This repository contains an cookiecutter template to deploy a docker container as a fargate service on an existing ECS Cluster.**
 
-## Spring Boot
-Out of box the  container comes with a Hello World Spring boot installed.
-The spring boot is a web application with a REST Api generated using [Spring Initializr](https://start.spring.io/)
+## Feautures
+-  Supported Git Repository: GitHub.
+-  InfraStructure As Code with CloudFormation.
+-  GitOps with an embedded CodePipeline to Continuously Deploy both your Application and
+   Infrastructure.
+ - Support for AutoScaling and Scheduled Scaling.
+ - Support for ClouwWatch Alerts with SNS Alarm actions.
+ - [Native Container Image Scanning in Amazon
+   ECR](https://aws.amazon.com/blogs/containers/amazon-ecr-native-container-image-scanning/)
+- Support for API Gateway
+- Support for X-Ray
+
+
+### Spring Boot
+Out of box the Docker container comes with a Hello World Spring boot installed.
+This Spring Boot application is a web application with a REST Api generated using [Spring Initializr](https://start.spring.io/)
 
 Both Maven an Gradle are supported as build tool for your Java application.  
 
