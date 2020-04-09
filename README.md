@@ -8,7 +8,7 @@ Cookiecutter is a tool that creates projects from project templates. **This repo
 -  GitOps with an embedded CodePipeline to Continuously Deploy both your Application and
    Infrastructure.
  - Support for AutoScaling and Scheduled Scaling.
- - Support for ClouwWatch Alerts with SNS Alarm actions.
+ - Support for CloudWatch Alerts with SNS Alarm actions.
  - [Native Container Image Scanning in Amazon
    ECR](https://aws.amazon.com/blogs/containers/amazon-ecr-native-container-image-scanning/)
 - Support for API Gateway
