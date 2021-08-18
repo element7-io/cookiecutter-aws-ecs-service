@@ -78,15 +78,15 @@ default_context:
     aws_default_region: eu-west-1
 
     # Non-prod Cluster & ALB settings
-    non_prod_cluster_name: ecs-blue-nonprod-cluster-cf
+    non_prod_cluster_name: some-cluster-name
     non_prod_vpc_id: vpc-8013c2e7
-    non_prod_private_subnets: subnet-3da57874,subnet-2ab2a172,subnet-1902d57e
-    non_prod_alb_name: ecs-blue-nonprod-public-alb-cf
-    non_prod_alb_arn: arn:aws:elasticloadbalancing:eu-west-1:583896339505:loadbalancer/app/ecs-blue-nonprod-public-alb-cf/eedd62432346c7f2
-    non_prod_alb_security_group: sg-0d7a8d99b56ebf2ab
-    non_prod_alb_hosted_zone: Z32O12XQLNTSW2
-    non_prod_alb_dns: ecs-blue-nonprod-public-alb-cf-2120400883.eu-west-1.elb.amazonaws.com
-    non_prod_alb_https_listener_arn: arn:aws:elasticloadbalancing:eu-west-1:583896339505:listener/app/ecs-blue-nonprod-public-alb-cf/eedd62432346c7f2/bb499c9c5a6263b0
+    non_prod_private_subnets: subnet-x,subnet-y,subnet-z
+    non_prod_alb_name: some-alb-name
+    non_prod_alb_arn: arn:aws:...
+    non_prod_alb_security_group: sg-xyz
+    non_prod_alb_hosted_zone: Z...
+    non_prod_alb_dns: ....elb.amazonaws.com
+    non_prod_alb_https_listener_arn: arn:aws:elasticloadbalancing:...
 
     # Production Cluster & ALB settings
     # Optional, see below for the exact values
@@ -120,10 +120,10 @@ default_context:
     prod_enable_scheduled_scaling: False
 
     # Global settings
-    artifact_s3_bucket: dpp-artifacts-123456789012-eu-west-1-cfn
-    alerting_sns_topic: arn:aws:sns:eu-west-1:123456789012:CloudWatchSns2HipChatLambda-cf
-    non_prod_ssl_certificate_arn: arn:aws:acm:eu-west-1:400007416746:certificate/f5081dc0-7758-4385-991a-ea6fb3cd2c12
-    prod_ssl_certificate_arn: arn:aws:acm:eu-west-1:400007416746:certificate/f5081dc0-7758-4385-991a-ea6fb3cd2c12
+    artifact_s3_bucket: some-s3-bucket
+    alerting_sns_topic: arn:aws:sns:...
+    non_prod_ssl_certificate_arn: arn:aws:acm:...
+    prod_ssl_certificate_arn: arn:aws:acm:...
 ```
 
 *Note: depending on the environments in your AWS account you should/could provide empty values for the prod or nonprod variables (don't omit these variables as this will break Cookiecutter, use empty strings as value instead).*
